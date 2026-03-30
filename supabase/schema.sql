@@ -32,18 +32,19 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_room_created ON messages(room_id, created_at);
+
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY "messages_allow_all" ON messages FOR ALL USING (true) WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- 3. 创建 Storage Bucket（存放加密文件）
+-- 3. 创建 Storage Bucket
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('chat-files', 'chat-files', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage 策略（允许所有操作 - 无认证）
+-- Storage 策略
 DO $$ BEGIN
   CREATE POLICY "chat_files_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chat-files');
 EXCEPTION WHEN duplicate_object THEN NULL;
@@ -54,14 +55,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
+Do $$ BEGIN
   CREATE POLICY "chat_files_delete" ON storage.objects FOR DELETE USING (bucket_id = 'chat-files');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
--- ============================================
--- 完成！验证命令：
--- SELECT * FROM rooms LIMIT 0;
--- SELECT * FROM messages LIMIT 0;
--- SELECT * FROM storage.buckets WHERE id = 'chat-files';
--- ============================================
