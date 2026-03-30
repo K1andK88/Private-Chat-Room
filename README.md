@@ -56,9 +56,7 @@ AES-256 密钥
 
 1. 前往 [supabase.com](https://supabase.com) 注册（免费）
 2. 创建新项目，记录 `Project URL` 和 `anon public key`
-3. 进入 SQL Editor，依次执行：
-   - `supabase/schema.sql` — 创建 rooms 表
-   - `supabase/migration-v2.sql` — 创建 messages 表、Storage Bucket、RLS 策略
+3. 进入 SQL Editor，执行 `supabase/schema.sql`（包含 rooms 表、messages 表、Storage Bucket、RLS 策略）
 
 ### 2. 配置环境变量
 
@@ -106,8 +104,7 @@ Private-Chat-Room/
 ├── tailwind.config.js
 ├── .env.example                # 环境变量模板
 ├── supabase/
-│   ├── schema.sql              # rooms 表建表 SQL
-│   └── migration-v2.sql        # messages 表 + Storage + RLS
+│   └── schema.sql              # 完整数据库初始化（rooms + messages + Storage + RLS）
 └── src/
     ├── main.tsx                # React 入口
     ├── App.tsx                 # 主应用组件
