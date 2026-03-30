@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS rooms (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- rooms 表 RLS（无认证系统，允许所有操作）
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY "rooms_allow_all" ON rooms FOR ALL USING (true) WITH CHECK (true);
@@ -32,10 +31,7 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at BIGINT NOT NULL
 );
 
--- 消息查询索引
 CREATE INDEX IF NOT EXISTS idx_messages_room_created ON messages(room_id, created_at);
-
--- messages 表 RLS（无认证系统，允许所有操作）
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY "messages_allow_all" ON messages FOR ALL USING (true) WITH CHECK (true);
