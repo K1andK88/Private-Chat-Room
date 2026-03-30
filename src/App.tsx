@@ -13,11 +13,40 @@ import MemberList from './components/MemberList'
 function ChatApp() {
   const [accessGranted, setAccessGranted] = useState(() => {
     const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD
-    if (!gatePassword) return true // No password configured
+    if (!gatePassword) return true
     return localStorage.getItem('pcr-access') === gatePassword
   })
   const [gateInput, setGateInput] = useState('')
   const [gateError, setGateError] = useState(false)
+
+  const [nickname, setNickname] = useState<string | null>(() =>
+    localStorage.getItem('pcr-nickname')
+  )
+  const [roomPassword, setRoomPassword] = useState('')
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const [showMembers, setShowMembers] = useState(false)
+
+  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom } = useRoom(nickname ?? '')
+
+  const {
+    messages,
+    error: msgError,
+    sendMessage,
+    sendImage,
+    retryMessage,
+    revokeMessage,
+    getDecrypted,
+    getFileMeta,
+    loadOriginalImage,
+    replyTo,
+    setReplyTo,
+    encryptionKey,
+    setError: _setMsgError,
+    sendingImage,
+    imagePreview,
+    clearImagePreview,
+    selectImage,
+  } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '')
 
   const handleGateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,35 +85,6 @@ function ChatApp() {
       </div>
     )
   }
-
-  const [nickname, setNickname] = useState<string | null>(() =>
-    localStorage.getItem('pcr-nickname')
-  )
-  const [roomPassword, setRoomPassword] = useState('')
-  const [joinError, setJoinError] = useState<string | null>(null)
-  const [showMembers, setShowMembers] = useState(false)
-
-  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom } = useRoom(nickname ?? '')
-
-  const {
-    messages,
-    error: msgError,
-    sendMessage,
-    sendImage,
-    retryMessage,
-    revokeMessage,
-    getDecrypted,
-    getFileMeta,
-    loadOriginalImage,
-    replyTo,
-    setReplyTo,
-    encryptionKey,
-    setError: _setMsgError,
-    sendingImage,
-    imagePreview,
-    clearImagePreview,
-    selectImage,
-  } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '')
 
   const joinOrCreateRoom = useCallback(async (name: string, password: string) => {
     setJoinError(null)
