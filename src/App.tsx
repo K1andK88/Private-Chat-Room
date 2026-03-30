@@ -11,6 +11,52 @@ import MessageInput from './components/MessageInput'
 import MemberList from './components/MemberList'
 
 function ChatApp() {
+  const [accessGranted, setAccessGranted] = useState(() => {
+    const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD
+    if (!gatePassword) return true // No password configured
+    return localStorage.getItem('pcr-access') === gatePassword
+  })
+  const [gateInput, setGateInput] = useState('')
+  const [gateError, setGateError] = useState(false)
+
+  const handleGateSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD || ''
+    if (gateInput === gatePassword) {
+      localStorage.setItem('pcr-access', gatePassword)
+      setAccessGranted(true)
+    } else {
+      setGateError(true)
+      setGateInput('')
+    }
+  }
+
+  if (!accessGranted) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-surface">
+        <form onSubmit={handleGateSubmit} className="flex flex-col items-center gap-4">
+          <div className="text-4xl mb-2">🔒</div>
+          <h1 className="text-xl font-medium text-txt">访问验证</h1>
+          <input
+            type="password"
+            value={gateInput}
+            onChange={(e) => { setGateInput(e.target.value); setGateError(false) }}
+            placeholder="请输入访问密码"
+            autoFocus
+            className={`w-64 px-4 py-2.5 rounded-xl border text-[15px] bg-surface-2 text-txt outline-none transition ${gateError ? 'border-red-400' : 'border-bdr focus:border-accent-400'}`}
+          />
+          {gateError && <p className="text-red-400 text-sm">密码错误</p>}
+          <button
+            type="submit"
+            className="w-64 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-medium transition"
+          >
+            进入
+          </button>
+        </form>
+      </div>
+    )
+  }
+
   const [nickname, setNickname] = useState<string | null>(() =>
     localStorage.getItem('pcr-nickname')
   )

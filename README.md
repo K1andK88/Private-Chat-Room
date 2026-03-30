@@ -68,6 +68,8 @@ cp .env.example .env
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+# Optional: set a password to gate access to the site
+# VITE_ACCESS_PASSWORD=your-access-password
 ```
 
 ### 3. 本地开发
@@ -158,6 +160,7 @@ Private-Chat-Room/
 - **昵称加密** — 发送者昵称与消息内容一起加密，数据库中不暴露真实身份
 - **确定性密钥派生** — 相同房间密码 + 相同房间 ID = 相同密钥，无需提前交换密钥
 - **图片端到端加密** — 原图经 AES-256-GCM 加密后上传，缩略图加密存储在消息元数据中
+- **访问密码保护** — 可选，设置 `VITE_ACCESS_PASSWORD` 环境变量后，访问网站需先输入密码
 
 ## 💰 免费额度
 
