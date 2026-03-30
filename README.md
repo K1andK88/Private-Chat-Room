@@ -77,7 +77,28 @@ npm install
 npm run dev
 ```
 
-### 4. 部署到 Cloudflare Pages
+### 4. 部署到 Vercel
+
+**方式一：Vercel CLI（推荐）**
+```bash
+npm i -g vercel
+vercel login
+vercel
+```
+按提示操作完成后，在 Vercel Dashboard → Settings → Environment Variables 中添加：
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+添加后重新部署（Deployments → 最新部署 → ⋯ → Redeploy）。
+
+**方式二：连接 Git 仓库**
+1. 把项目推到 GitHub
+2. [vercel.com/new](https://vercel.com/new) 导入仓库
+3. Framework preset 选 `Vite`
+4. Environment Variables 中添加 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`
+5. 点击 Deploy
+
+### 5. 部署到 Cloudflare Pages
 
 **方式一：连接 Git 仓库（推荐）**
 1. 把项目推到 GitHub
@@ -93,6 +114,7 @@ npm run dev
 npm run build
 npx wrangler pages deploy dist --project-name=private-chat-room
 ```
+添加环境变量后在 Cloudflare Dashboard → Pages → 项目 → Settings → Environment variables 中配置。
 
 ## 📂 项目结构
 
