@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Private Chat Room</title>
+    <style id="theme-css">
+      :root {
+        --c-bg: #fefdfb;
+        --c-bg-2: #faf8f4;
+        --c-bg-3: #f1ede6;
+        --c-bg-hover: #e8e3da;
+        --c-border: #d4cec4;
+        --c-text: #1c1a17;
+        --c-text-2: #2c2924;
+        --c-text-3: #5c5750;
+        --c-text-4: #9c968c;
+      }
+    </style>
+    <style id="theme-css-dark">
+      [data-theme="dark"] {
+        --c-bg: #121210;
+        --c-bg-2: #1c1b18;
+        --c-bg-3: #272520;
+        --c-bg-hover: #343025;
+        --c-border: #3d3830;
+        --c-text: #f0ede6;
+        --c-text-2: #c9c4b8;
+        --c-text-3: #8a8478;
+        --c-text-4: #5c5850;
+      }
+    </style>
+    <script>
+      (function(){
+        var t=localStorage.getItem('pcr-theme'),d;
+        if(t==='light')d='light';
+        else if(t==='dark')d='dark';
+        else d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+        document.documentElement.setAttribute('data-theme',d);
+      })();
+    </script>
+  </head>
+  <body class="bg-surface text-txt">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
