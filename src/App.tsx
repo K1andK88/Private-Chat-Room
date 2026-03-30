@@ -19,9 +19,14 @@ function ChatApp() {
   const [gateInput, setGateInput] = useState('')
   const [gateError, setGateError] = useState(false)
 
-  const [nickname, setNickname] = useState<string | null>(() =>
-    localStorage.getItem('pcr-nickname')
-  )
+  const [nickname, setNickname] = useState<string | null>(() => {
+    const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD
+    const gatePassed = !gatePassword || localStorage.getItem('pcr-access') === gatePassword
+    if (gatePassed) {
+      return localStorage.getItem('pcr-nickname')
+    }
+    return null
+  })
   const [roomPassword, setRoomPassword] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
@@ -48,43 +53,7 @@ function ChatApp() {
     selectImage,
   } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '')
 
-  const handleGateSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD || ''
-    if (gateInput === gatePassword) {
-      localStorage.setItem('pcr-access', gatePassword)
-      setAccessGranted(true)
-    } else {
-      setGateError(true)
-      setGateInput('')
-    }
-  }
-
-  if (!accessGranted) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-surface">
-        <form onSubmit={handleGateSubmit} className="flex flex-col items-center gap-4">
-          <div className="text-4xl mb-2">🔒</div>
-          <h1 className="text-xl font-medium text-txt">访问验证</h1>
-          <input
-            type="password"
-            value={gateInput}
-            onChange={(e) => { setGateInput(e.target.value); setGateError(false) }}
-            placeholder="请输入访问密码"
-            autoFocus
-            className={`w-64 px-4 py-2.5 rounded-xl border text-[15px] bg-surface-2 text-txt outline-none transition ${gateError ? 'border-red-400' : 'border-bdr focus:border-accent-400'}`}
-          />
-          {gateError && <p className="text-red-400 text-sm">密码错误</p>}
-          <button
-            type="submit"
-            className="w-64 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-medium transition"
-          >
-            进入
-          </button>
-        </form>
-      </div>
-    )
-  }
+  // ── ALL hooks must be declared BEFORE any conditional return ──
 
   const joinOrCreateRoom = useCallback(async (name: string, password: string) => {
     setJoinError(null)
@@ -124,6 +93,26 @@ function ChatApp() {
     joinOrCreateRoom(room, password)
   }, [nickname, currentRoom, joinOrCreateRoom])
 
+  useEffect(() => {
+    if (currentRoom) setJoinError(null)
+  }, [currentRoom])
+
+  // ── Event handlers (not hooks, but keep before returns for clarity) ──
+
+  const handleGateSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const gatePassword = import.meta.env.VITE_ACCESS_PASSWORD || ''
+    if (gateInput === gatePassword) {
+      localStorage.setItem('pcr-access', gatePassword)
+      setAccessGranted(true)
+      const savedNick = localStorage.getItem('pcr-nickname')
+      if (savedNick) setNickname(savedNick)
+    } else {
+      setGateError(true)
+      setGateInput('')
+    }
+  }
+
   const handleCreateRoom = async (name: string, password: string) => {
     setJoinError(null)
     const room = await createRoom(name, password)
@@ -153,9 +142,33 @@ function ChatApp() {
     setNickname(null)
   }
 
-  useEffect(() => {
-    if (currentRoom) setJoinError(null)
-  }, [currentRoom])
+  // ── Conditional returns (AFTER all hooks) ──
+
+  if (!accessGranted) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-surface">
+        <form onSubmit={handleGateSubmit} className="flex flex-col items-center gap-4">
+          <div className="text-4xl mb-2">🔒</div>
+          <h1 className="text-xl font-medium text-txt">访问验证</h1>
+          <input
+            type="password"
+            value={gateInput}
+            onChange={(e) => { setGateInput(e.target.value); setGateError(false) }}
+            placeholder="请输入访问密码"
+            autoFocus
+            className={`w-64 px-4 py-2.5 rounded-xl border text-[15px] bg-surface-2 text-txt outline-none transition ${gateError ? 'border-red-400' : 'border-bdr focus:border-accent-400'}`}
+          />
+          {gateError && <p className="text-red-400 text-sm">密码错误</p>}
+          <button
+            type="submit"
+            className="w-64 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-medium transition"
+          >
+            进入
+          </button>
+        </form>
+      </div>
+    )
+  }
 
   if (!nickname) {
     return <NicknameEntry onEnter={(n) => setNickname(n)} />

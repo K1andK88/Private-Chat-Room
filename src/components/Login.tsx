@@ -23,12 +23,6 @@ export default function NicknameEntry({ onEnter }: NicknameEntryProps) {
     onEnter(trimmed)
   }
 
-  const saved = localStorage.getItem('pcr-nickname')
-  if (saved) {
-    onEnter(saved)
-    return null
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
