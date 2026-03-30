@@ -63,10 +63,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- 清理旧表（如果存在）
-DROP TABLE IF EXISTS user_public_keys;
-DROP TABLE IF EXISTS room_members;
-
 -- ============================================
 -- 完成！验证命令：
 -- SELECT * FROM rooms LIMIT 0;
