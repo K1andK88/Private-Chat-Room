@@ -7,6 +7,7 @@
 - **真正的 E2EE** — PBKDF2 + AES-256-GCM，密钥只在浏览器中，服务器永远只接触密文
 - **昵称免注册** — 输入昵称直接使用，无需邮箱注册
 - **图片加密传输** — 图片端到端加密上传，缩略图同样加密存储
+- **消息自动消失** — 可自定义过期时间（默认 10 分钟，通过环境变量配置）
 - **消息撤回** — 支持发送后 5 分钟内撤回
 - **引用回复 & @提及** — 完整的聊天交互体验
 - **昵称加密** — 发送者昵称加密存储在消息体中，数据库不暴露身份信息
@@ -68,8 +69,12 @@ cp .env.example .env
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+
 # Optional: set a password to gate access to the site
 # VITE_ACCESS_PASSWORD=your-access-password
+
+# Optional: message expiration time in minutes (default: 10)
+# VITE_MESSAGE_TTL=10
 ```
 
 ### 3. 本地开发
@@ -91,6 +96,10 @@ vercel
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
+可选环境变量：
+- `VITE_ACCESS_PASSWORD` — 访问密码（保护网站入口）
+- `VITE_MESSAGE_TTL` — 消息过期时间（分钟，默认 10）
+
 添加后重新部署（Deployments → 最新部署 → ⋯ → Redeploy）。
 
 **方式二：连接 Git 仓库**
@@ -109,14 +118,14 @@ vercel
    - Framework preset: `Vite`
    - 构建命令：`npm run build`
    - 输出目录：`dist`
-4. 添加环境变量：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`
+4. 添加环境变量：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`）
 
 **方式二：Wrangler CLI**
 ```bash
 npm run build
 npx wrangler pages deploy dist --project-name=private-chat-room
 ```
-添加环境变量后在 Cloudflare Dashboard → Pages → 项目 → Settings → Environment variables 中配置。
+添加环境变量后在 Cloudflare Dashboard → Pages → 项目 → Settings → Environment variables 中配置（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`）。
 
 ## 📂 项目结构
 

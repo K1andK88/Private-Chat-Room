@@ -58,7 +58,7 @@ export interface PresenceUser {
   joined_at: number
 }
 
-export const MESSAGE_TTL_MS = 10 * 60 * 1000
+export const MESSAGE_TTL_MS = (parseInt(import.meta.env.VITE_MESSAGE_TTL) || 10) * 60 * 1000
 export const REVOKE_WINDOW_MS = 2 * 60 * 1000
 export const FILE_EXPIRE_MS = 24 * 60 * 60 * 1000
 export const MAX_IMAGE_SIZE = 20 * 1024 * 1024
