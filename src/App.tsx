@@ -52,7 +52,11 @@ function ChatApp() {
     imagePreview,
     clearImagePreview,
     selectImage,
-  } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '')
+  } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '', () => {
+    leaveRoom()
+    setRoomPassword('')
+    setJoinError('房间已被删除')
+  })
 
   // ── ALL hooks must be declared BEFORE any conditional return ──
 

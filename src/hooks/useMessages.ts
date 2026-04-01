@@ -22,7 +22,8 @@ const IV_LENGTH = 12
 export function useMessages(
   roomId: string | null,
   roomPassword: string,
-  nickname: string
+  nickname: string,
+  onRoomDeleted?: () => void
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null)
@@ -226,20 +227,19 @@ export function useMessages(
 
   // Save message to DB
   const saveToDB = useCallback(async (msg: ChatMessage) => {
-    try {
-      await supabase.from('messages').insert({
-        id: msg.id,
-        room_id: msg.room_id,
-        sender_nickname: msg.sender_nickname,
-        msg_type: msg.msg_type,
-        payload: msg.payload,
-        file_meta_encrypted: msg.file_meta_encrypted || null,
-        reply_to_id: msg.reply_to_id || null,
-        action: msg.action,
-        created_at: msg.created_at,
-      })
-    } catch (err) {
-      console.error('Save to DB failed:', err)
+    const { error: dbError } = await supabase.from('messages').insert({
+      id: msg.id,
+      room_id: msg.room_id,
+      sender_nickname: msg.sender_nickname,
+      msg_type: msg.msg_type,
+      payload: msg.payload,
+      file_meta_encrypted: msg.file_meta_encrypted || null,
+      reply_to_id: msg.reply_to_id || null,
+      action: msg.action,
+      created_at: msg.created_at,
+    })
+    if (dbError) {
+      throw dbError
     }
   }, [])
 
@@ -290,7 +290,13 @@ export function useMessages(
             timestamp: Date.now(),
           } satisfies BroadcastMessage,
         })
-      } catch {
+      } catch (err: unknown) {
+        // Check if room was deleted (foreign key violation)
+        if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23503') {
+          setError('房间已被删除')
+          onRoomDeleted?.()
+          return
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId ? { ...m, status: 'failed' as MessageStatus } : m
@@ -299,7 +305,7 @@ export function useMessages(
         setError('消息发送失败')
       }
     },
-    [roomId, nickname, encryptionKey, saveToDB, encryptPayload]
+    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted]
   )
 
   // Send image
@@ -332,8 +338,6 @@ export function useMessages(
         uploadData.set(fileIv, 0)
         uploadData.set(encryptedData, IV_LENGTH)
 
-        await uploadEncryptedFile(roomId, msgId, uploadData)
-
         const fileMeta: FileMeta = {
           thumbnail,
           fileKey,
@@ -362,8 +366,11 @@ export function useMessages(
         setMessages((prev) => [...prev, optimisticMsg])
         setImagePreview(null)
 
-        // Save to DB first, then broadcast
+        // Save to DB first — if room is deleted, abort before uploading to Storage
         await saveToDB({ ...optimisticMsg, status: 'sent' })
+
+        // Upload encrypted file to Storage only after DB save succeeds
+        await uploadEncryptedFile(roomId, msgId, uploadData)
 
         channelRef.current?.send({
           type: 'broadcast',
@@ -384,19 +391,25 @@ export function useMessages(
           prev.map((m) => (m.id === msgId ? { ...m, status: 'sent' as MessageStatus } : m))
         )
 
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Send image failed:', err)
-        setError('图片发送失败')
+        // Check if room was deleted (foreign key violation)
+        if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23503') {
+          setError('房间已被删除')
+          onRoomDeleted?.()
+          return
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId ? { ...m, status: 'failed' as MessageStatus } : m
           )
         )
+        setError('图片发送失败')
       } finally {
         setSendingImage(false)
       }
     },
-    [roomId, nickname, encryptionKey, saveToDB, encryptPayload]
+    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted]
   )
 
   // Retry failed message
