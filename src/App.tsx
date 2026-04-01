@@ -81,37 +81,22 @@ function ChatApp() {
       return
     }
 
-    // Verify password
+    // Verify password via password_verify field
     try {
       const key = await deriveKey(password, existing.id)
-
-      // Prefer password_verify field (works even for empty rooms)
-      if (existing.password_verify) {
-        const payload = existing.password_verify as { ciphertext: string; iv: string }
-        const decrypted = await decryptMessage(payload, key)
-        if (decrypted !== 'PCR_VERIFY_2026') {
-          throw new Error('password mismatch')
-        }
-      } else {
-        // Fallback: try decrypting a recent message (old rooms without password_verify)
-        const { data: recentMsgs } = await supabase
-          .from('messages')
-          .select('payload')
-          .eq('room_id', existing.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (recentMsgs && recentMsgs.length > 0) {
-          const payload = recentMsgs[0].payload as { ciphertext: string; iv: string }
-          if (payload?.ciphertext && payload?.iv) {
-            await decryptMessage(payload, key)
-          }
-        }
-        // No messages and no password_verify → old empty room, allow entry
+      if (!existing.password_verify) {
+        setRoomPassword('')
+        setJoinError('⚠️ 该房间版本过旧，无法验证密码')
+        return
+      }
+      const payload = existing.password_verify as { ciphertext: string; iv: string }
+      const decrypted = await decryptMessage(payload, key)
+      if (decrypted !== 'PCR_VERIFY_2026') {
+        throw new Error('password mismatch')
       }
     } catch {
       setRoomPassword('')
-      setJoinError('🔑 密码不正确，无法解密房间消息')
+      setJoinError('🔑 密码不正确')
       return
     }
 
