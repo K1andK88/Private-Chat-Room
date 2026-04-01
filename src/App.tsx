@@ -53,6 +53,13 @@ function ChatApp() {
     selectImage,
   } = useMessages(currentRoom?.id ?? null, roomPassword, nickname ?? '')
 
+  // Request notification permission for taskbar flash
+  useEffect(() => {
+    if (currentRoom && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [currentRoom])
+
   // ── ALL hooks must be declared BEFORE any conditional return ──
 
   const joinOrCreateRoom = useCallback(async (name: string, password: string) => {

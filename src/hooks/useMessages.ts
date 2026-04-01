@@ -40,18 +40,20 @@ export function useMessages(
 
   // Tab flash when page is hidden and new message arrives
   const bumpUnread = useCallback(() => {
+    console.log('[flash] bumpUnread called, hidden=', document.hidden)
     if (!document.hidden) return
     unreadRef.current++
     const count = unreadRef.current
-    if (!flashRef.current) {
-      flashRef.current = setInterval(() => {
-        document.title = document.title === originalTitleRef.current
-          ? `(${count}) 新消息`
-          : originalTitleRef.current
-      }, 800)
-    } else {
-      // update count in the flash text immediately
-      document.title = `(${count}) 新消息`
+    console.log('[flash] unread=', count, 'starting flash')
+    // Use Notification API to trigger taskbar flash (Windows orange blink)
+    if (Notification.permission === 'granted') {
+      const n = new Notification('新消息', {
+        body: `你有 ${unreadRef.current} 条未读消息`,
+        tag: 'chat-unread',
+        silent: true,
+      })
+      // Auto-close after 1s so no lingering popup, just taskbar flash
+      setTimeout(() => n.close(), 1000)
     }
   }, [])
 
@@ -149,6 +151,7 @@ export function useMessages(
       }
 
       if (msg.type === 'message' && msg.payload) {
+        console.log('[flash] received broadcast message, calling bumpUnread')
         bumpUnread()
         const chatMsg: ChatMessage = {
           id: msg.message_id || crypto.randomUUID(),
