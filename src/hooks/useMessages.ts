@@ -45,18 +45,7 @@ export function useMessages(
     unreadRef.current++
     const count = unreadRef.current
     console.log('[flash] unread=', count, 'starting flash')
-    // Use Notification API to trigger taskbar flash (Windows orange blink)
-    if (Notification.permission === 'granted') {
-      new Notification('新消息', {
-        body: `你有 ${unreadRef.current} 条未读消息`,
-        tag: 'chat-unread',
-        silent: true,
-        requireInteraction: true,
-      })
-      // Don't auto-close — let the OS handle it.
-      // requireInteraction keeps it visible, which triggers the taskbar flash.
-      // It auto-dismisses when user clicks on the tab.
-    }
+
   }, [])
 
   // Stop flashing when page becomes visible
@@ -69,8 +58,6 @@ export function useMessages(
           flashRef.current = null
         }
         document.title = originalTitleRef.current
-        // Close any lingering notifications
-        navigator.serviceWorker?.controller?.postMessage({ type: 'close-notifications' }, undefined as unknown as undefined)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
