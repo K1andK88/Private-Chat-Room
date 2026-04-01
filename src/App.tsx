@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { ThemeProvider } from './lib/theme'
-import { deriveKey, decryptMessage } from './lib/crypto'
+import { deriveKey, decryptMessage, encryptMessage } from './lib/crypto'
 import { useRoom } from './hooks/useRoom'
 import { useMessages } from './hooks/useMessages'
 import NicknameEntry from './components/Login'
@@ -67,7 +67,7 @@ function ChatApp() {
       .single()
 
     if (dbError && dbError.code === 'PGRST116') {
-      const room = await createRoom(name, password)
+      const room = await createRoom(name)
       if (room) {
         await joinRoom(room)
       } else {
