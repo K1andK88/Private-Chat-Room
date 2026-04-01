@@ -121,7 +121,7 @@ function ChatApp() {
       .single()
 
     if (dbError || !existing) {
-      setJoinError('❌ 房间号不存在，请检查后重试')
+      setJoinError('房间号不存在，请检查后重试')
       return
     }
 
