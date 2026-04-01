@@ -399,10 +399,31 @@ export function useMessages(
         setImagePreview(null)
 
         // Save to DB first — if room is deleted, abort before uploading to Storage
-        await saveToDB({ ...optimisticMsg, status: 'sent' })
+        try {
+          await saveToDB({ ...optimisticMsg, status: 'sent' })
+        } catch (dbErr: unknown) {
+          // Room deleted or other DB error — don't upload, don't save to IndexedDB
+          throw dbErr
+        }
 
         // Upload encrypted file to Storage only after DB save succeeds
-        await uploadEncryptedFile(roomId, msgId, uploadData)
+        try {
+          await uploadEncryptedFile(roomId, msgId, uploadData)
+        } catch {
+          // DB saved but upload failed — save to IndexedDB for retry
+          if (uploadData) {
+            try {
+              await savePendingUpload({
+                msgId,
+                roomId,
+                uploadData: uploadData.buffer.slice(0) as ArrayBuffer,
+                createdAt: optimisticMsg.created_at,
+              })
+              console.log('[image] saved to IndexedDB for retry:', msgId)
+            } catch { /* nothing more we can do */ }
+          }
+          throw new Error('UPLOAD_FAILED')
+        }
 
         channelRef.current?.send({
           type: 'broadcast',
@@ -431,26 +452,17 @@ export function useMessages(
           onRoomDeleted?.()
           return
         }
-        // If DB save succeeded but upload failed, save to IndexedDB for retry
-        if (roomId && typeof uploadData !== 'undefined') {
-          try {
-            await savePendingUpload({
-              msgId,
-              roomId,
-              uploadData: uploadData.buffer.slice(0) as ArrayBuffer,
-              createdAt: Date.now(),
-            })
-            console.log('[image] saved to IndexedDB for retry:', msgId)
-          } catch {
-            // IndexedDB save failed, nothing more we can do
-          }
-        }
+        // Note: IndexedDB save is handled in the inner try-catch above
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId ? { ...m, status: 'failed' as MessageStatus } : m
           )
         )
-        setError('图片发送失败，将在网络恢复后自动重传')
+        if (err instanceof Error && err.message === 'UPLOAD_FAILED') {
+          setError('图片发送失败，将在网络恢复后自动重传')
+        } else {
+          setError('图片发送失败')
+        }
       } finally {
         setSendingImage(false)
       }
