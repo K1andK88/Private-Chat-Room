@@ -91,7 +91,7 @@ function ChatApp() {
       }
       const payload = existing.password_verify as { ciphertext: string; iv: string }
       const decrypted = await decryptMessage(payload, key)
-      if (decrypted !== 'PCR_VERIFY_2026') {
+      if (decrypted !== (import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026')) {
         throw new Error('password mismatch')
       }
     } catch {
@@ -140,7 +140,7 @@ function ChatApp() {
       if (room) {
         // Derive key with actual room ID, store password verification
         const key = await deriveKey(password, room.id)
-        const verifyPayload = await encryptMessage('PCR_VERIFY_2026', key)
+        const verifyPayload = await encryptMessage(import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026', key)
         await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
 
         setRoomPassword(password)
