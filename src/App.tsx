@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { ThemeProvider } from './lib/theme'
+import { deriveKey, decryptMessage } from './lib/crypto'
 import { useRoom } from './hooks/useRoom'
 import { useMessages } from './hooks/useMessages'
 import NicknameEntry from './components/Login'
@@ -80,6 +81,30 @@ function ChatApp() {
       return
     }
 
+    // Verify password by trying to decrypt a recent message
+    try {
+      const key = await deriveKey(password, existing.id)
+      const { data: recentMsgs } = await supabase
+        .from('messages')
+        .select('payload')
+        .eq('room_id', existing.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (recentMsgs && recentMsgs.length > 0) {
+        const payload = recentMsgs[0].payload as { ciphertext: string; iv: string }
+        if (payload?.ciphertext && payload?.iv) {
+          await decryptMessage(payload, key)
+          // If decryption succeeds, password is correct
+        }
+      }
+      // If no messages in room, allow entry (new room)
+    } catch {
+      setRoomPassword('')
+      setJoinError('🔑 密码不正确，无法解密房间消息')
+      return
+    }
+
     await joinRoom(existing)
   }, [joinRoom, createRoom])
 
@@ -133,8 +158,11 @@ function ChatApp() {
   }
 
   const handleJoinRoom = async (name: string, password: string) => {
+    setJoinError(null)
     await joinOrCreateRoom(name, password)
   }
+
+  const clearJoinError = useCallback(() => setJoinError(null), [])
 
   const handleLeaveRoom = async () => {
     await leaveRoom()
@@ -302,6 +330,7 @@ function ChatApp() {
             onJoinRoom={handleJoinRoom}
             loading={loading}
             error={joinError}
+            onClearError={clearJoinError}
           />
         )}
       </div>

@@ -5,6 +5,7 @@ interface RoomEntryProps {
   onJoinRoom: (name: string, password: string) => void
   loading: boolean
   error: string | null
+  onClearError: () => void
 }
 
 function generateRoomId(): string {
@@ -16,7 +17,7 @@ function generateRoomId(): string {
   return result
 }
 
-export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error }: RoomEntryProps) {
+export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error, onClearError }: RoomEntryProps) {
   const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose')
   const [roomName, setRoomName] = useState('')
   const [roomPassword, setRoomPassword] = useState('')
@@ -52,6 +53,7 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error }: 
     setRoomName('')
     setRoomPassword('')
     setPrefilled(false)
+    onClearError()
   }
 
   // Parse error message
@@ -63,7 +65,7 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error }: 
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-sm space-y-3">
           <button
-            onClick={() => setMode('create')}
+            onClick={() => { setMode('create'); onClearError() }}
             className="w-full p-4 bg-surface-2 hover:bg-surface-hover border border-bdr rounded-xl text-left transition group"
           >
             <div className="text-2xl mb-2">➕</div>
@@ -71,7 +73,7 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error }: 
             <div className="text-txt-4 text-xs mt-1">生成随机房间号或自定义，邀请他人加入</div>
           </button>
           <button
-            onClick={() => setMode('join')}
+            onClick={() => { setMode('join'); onClearError() }}
             className="w-full p-4 bg-surface-2 hover:bg-surface-hover border border-bdr rounded-xl text-left transition group"
           >
             <div className="text-2xl mb-2">🚪</div>
