@@ -14,7 +14,6 @@ export function useRoom(nickname: string) {
   const createRoom = useCallback(async (name: string, _password: string): Promise<Room | null> => {
     setLoading(true)
     try {
-      // Try insert (upsert for idempotency if room name exists)
       const { data, error } = await supabase
         .from('rooms')
         .insert({ name, created_by: nickname })
@@ -22,19 +21,22 @@ export function useRoom(nickname: string) {
         .single()
 
       if (error) {
-        // Room might already exist, try to get it
+        console.error('[createRoom] insert error:', error.code, error.message, 'name=', name)
         if (error.code === '23505') {
           const { data: existing } = await supabase
             .from('rooms')
             .select('*')
             .eq('name', name)
             .single()
-          if (existing) return existing
+          if (existing) {
+            console.log('[createRoom] returning existing room:', existing.name, existing.id)
+            return existing
+          }
         }
-        console.error('Create room error:', error)
         return null
       }
 
+      console.log('[createRoom] created new room:', data.name, data.id)
       return data
     } finally {
       setLoading(false)
