@@ -23,15 +23,7 @@ export function useRoom(nickname: string) {
       if (error) {
         console.error('[createRoom] insert error:', error.code, error.message, 'name=', name)
         if (error.code === '23505') {
-          const { data: existing } = await supabase
-            .from('rooms')
-            .select('*')
-            .eq('name', name)
-            .single()
-          if (existing) {
-            console.log('[createRoom] returning existing room:', existing.name, existing.id)
-            return existing
-          }
+          throw new Error('ROOM_EXISTS')
         }
         return null
       }

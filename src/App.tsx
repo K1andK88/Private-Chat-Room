@@ -115,12 +115,20 @@ function ChatApp() {
 
   const handleCreateRoom = async (name: string, password: string) => {
     setJoinError(null)
-    const room = await createRoom(name, password)
-    if (room) {
-      setRoomPassword(password)
-      await joinRoom(room)
-    } else {
-      setJoinError('创建房间失败，房间号可能已存在')
+    try {
+      const room = await createRoom(name, password)
+      if (room) {
+        setRoomPassword(password)
+        await joinRoom(room)
+      } else {
+        setJoinError('创建房间失败，请稍后重试')
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'ROOM_EXISTS') {
+        setJoinError('房间号已存在，请换一个或直接加入')
+      } else {
+        setJoinError('创建房间失败，请稍后重试')
+      }
     }
   }
 
