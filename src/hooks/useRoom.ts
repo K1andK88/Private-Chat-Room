@@ -11,7 +11,7 @@ export function useRoom(nickname: string) {
   const userIdRef = useRef(`user:${nickname}:${crypto.randomUUID()}`)
 
   // Create a new room in Supabase
-  const createRoom = useCallback(async (name: string, _password: string): Promise<Room | null> => {
+  const createRoom = useCallback(async (name: string): Promise<Room | null> => {
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -21,14 +21,12 @@ export function useRoom(nickname: string) {
         .single()
 
       if (error) {
-        console.error('[createRoom] insert error:', error.code, error.message, 'name=', name)
         if (error.code === '23505') {
           throw new Error('ROOM_EXISTS')
         }
         return null
       }
 
-      console.log('[createRoom] created new room:', data.name, data.id)
       return data
     } finally {
       setLoading(false)

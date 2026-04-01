@@ -81,24 +81,34 @@ function ChatApp() {
       return
     }
 
-    // Verify password by trying to decrypt a recent message
+    // Verify password
     try {
       const key = await deriveKey(password, existing.id)
-      const { data: recentMsgs } = await supabase
-        .from('messages')
-        .select('payload')
-        .eq('room_id', existing.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
 
-      if (recentMsgs && recentMsgs.length > 0) {
-        const payload = recentMsgs[0].payload as { ciphertext: string; iv: string }
-        if (payload?.ciphertext && payload?.iv) {
-          await decryptMessage(payload, key)
-          // If decryption succeeds, password is correct
+      // Prefer password_verify field (works even for empty rooms)
+      if (existing.password_verify) {
+        const payload = existing.password_verify as { ciphertext: string; iv: string }
+        const decrypted = await decryptMessage(payload, key)
+        if (decrypted !== 'PCR_VERIFY_2026') {
+          throw new Error('password mismatch')
         }
+      } else {
+        // Fallback: try decrypting a recent message (old rooms without password_verify)
+        const { data: recentMsgs } = await supabase
+          .from('messages')
+          .select('payload')
+          .eq('room_id', existing.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (recentMsgs && recentMsgs.length > 0) {
+          const payload = recentMsgs[0].payload as { ciphertext: string; iv: string }
+          if (payload?.ciphertext && payload?.iv) {
+            await decryptMessage(payload, key)
+          }
+        }
+        // No messages and no password_verify → old empty room, allow entry
       }
-      // If no messages in room, allow entry (new room)
     } catch {
       setRoomPassword('')
       setJoinError('🔑 密码不正确，无法解密房间消息')
@@ -141,8 +151,13 @@ function ChatApp() {
   const handleCreateRoom = async (name: string, password: string) => {
     setJoinError(null)
     try {
-      const room = await createRoom(name, password)
+      const room = await createRoom(name)
       if (room) {
+        // Derive key with actual room ID, store password verification
+        const key = await deriveKey(password, room.id)
+        const verifyPayload = await encryptMessage('PCR_VERIFY_2026', key)
+        await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
+
         setRoomPassword(password)
         await joinRoom(room)
       } else {
