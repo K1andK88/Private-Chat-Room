@@ -56,55 +56,6 @@ function ChatApp() {
 
   // ── ALL hooks must be declared BEFORE any conditional return ──
 
-  const joinOrCreateRoom = useCallback(async (name: string, password: string) => {
-    setJoinError(null)
-    setRoomPassword(password)
-
-    const { data: existing, error: dbError } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('name', name)
-      .single()
-
-    if (dbError && dbError.code === 'PGRST116') {
-      const room = await createRoom(name)
-      if (room) {
-        const key = await deriveKey(password, room.id)
-        const verifyPayload = await encryptMessage(import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026', key)
-        await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
-        await joinRoom(room)
-      } else {
-        setJoinError('创建房间失败，请稍后重试')
-      }
-      return
-    }
-
-    if (!existing) {
-      setJoinError('房间号不存在，请检查后重试')
-      return
-    }
-
-    // Verify password via password_verify field
-    try {
-      const key = await deriveKey(password, existing.id)
-      if (!existing.password_verify) {
-        setRoomPassword('')
-        setJoinError('⚠️ 该房间版本过旧，无法验证密码')
-        return
-      }
-      const payload = existing.password_verify as { ciphertext: string; iv: string }
-      const decrypted = await decryptMessage(payload, key)
-      if (decrypted !== (import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026')) {
-        throw new Error('password mismatch')
-      }
-    } catch {
-      setRoomPassword('')
-      setJoinError('密码不正确')
-      return
-    }
-
-    await joinRoom(existing)
-  }, [joinRoom, createRoom])
 
   useEffect(() => {
     if (!nickname || currentRoom) return
@@ -113,8 +64,8 @@ function ChatApp() {
     const password = params.get('p')
     if (!room || !password) return
     window.history.replaceState({}, '', window.location.pathname)
-    joinOrCreateRoom(room, password)
-  }, [nickname, currentRoom, joinOrCreateRoom])
+    handleJoinRoom(room, password)
+  }, [nickname, currentRoom])
 
   useEffect(() => {
     if (currentRoom) setJoinError(null)
