@@ -206,10 +206,25 @@ export function useMessages(
       try {
         await uploadEncryptedFile(item.roomId, item.msgId, new Uint8Array(item.uploadData))
         await removePendingUpload(item.msgId)
+        // Update UI: mark message as sent
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === item.msgId ? { ...m, status: 'sent' as MessageStatus } : m
+          )
+        )
         console.log('[image] retry upload succeeded:', item.msgId)
       } catch {
         // Still failing, keep in IndexedDB for next attempt
         console.log('[image] retry upload still failing:', item.msgId)
+      }
+    }
+
+    // Clean up expired uploads from other rooms
+    const otherPending = pending.filter((p) => p.roomId !== roomId)
+    for (const item of otherPending) {
+      if (Date.now() - item.createdAt >= MESSAGE_TTL_MS) {
+        await supabase.from('messages').delete().eq('id', item.msgId)
+        await removePendingUpload(item.msgId)
       }
     }
   }, [roomId, encryptionKey])
