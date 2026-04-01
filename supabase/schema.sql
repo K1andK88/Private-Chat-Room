@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   created_by TEXT NOT NULL DEFAULT '',
+  password_verify JSONB,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -21,7 +22,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
-  sender_nickname TEXT NOT NULL,
+  sender_nickname TEXT NOT NULL DEFAULT '',
   msg_type TEXT NOT NULL DEFAULT 'text',
   payload JSONB NOT NULL DEFAULT '{"ciphertext":"","iv":""}',
   file_meta_encrypted JSONB,
@@ -55,7 +56,12 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-Do $$ BEGIN
+DO $$ BEGIN
   CREATE POLICY "chat_files_delete" ON storage.objects FOR DELETE USING (bucket_id = 'chat-files');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ============================================
+-- 如果是升级已有数据库，执行以下增量迁移：
+-- ============================================
+-- ALTER TABLE rooms ADD COLUMN password_verify JSONB;

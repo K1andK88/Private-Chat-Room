@@ -69,6 +69,9 @@ function ChatApp() {
     if (dbError && dbError.code === 'PGRST116') {
       const room = await createRoom(name)
       if (room) {
+        const key = await deriveKey(password, room.id)
+        const verifyPayload = await encryptMessage(import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026', key)
+        await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
         await joinRoom(room)
       } else {
         setJoinError('创建房间失败，请稍后重试')
@@ -96,7 +99,7 @@ function ChatApp() {
       }
     } catch {
       setRoomPassword('')
-      setJoinError('🔑 密码不正确')
+      setJoinError('密码不正确')
       return
     }
 
@@ -159,7 +162,37 @@ function ChatApp() {
 
   const handleJoinRoom = async (name: string, password: string) => {
     setJoinError(null)
-    await joinOrCreateRoom(name, password)
+
+    const { data: existing, error: dbError } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('name', name)
+      .single()
+
+    if (dbError || !existing) {
+      setJoinError('❌ 房间号不存在，请检查后重试')
+      return
+    }
+
+    // Verify password
+    try {
+      const key = await deriveKey(password, existing.id)
+      if (!existing.password_verify) {
+        setJoinError('⚠️ 该房间版本过旧，无法验证密码')
+        return
+      }
+      const payload = existing.password_verify as { ciphertext: string; iv: string }
+      const decrypted = await decryptMessage(payload, key)
+      if (decrypted !== (import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026')) {
+        throw new Error('password mismatch')
+      }
+    } catch {
+      setJoinError('密码不正确')
+      return
+    }
+
+    setRoomPassword(password)
+    await joinRoom(existing)
   }
 
   const clearJoinError = useCallback(() => setJoinError(null), [])
