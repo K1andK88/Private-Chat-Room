@@ -34,6 +34,42 @@ export function useMessages(
   const cleanupRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pendingRef = useRef<Map<string, string>>(new Map())
   const imageCacheRef = useRef<Map<string, string>>(new Map())
+  const unreadRef = useRef(0)
+  const flashRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const originalTitleRef = useRef(document.title)
+
+  // Tab flash when page is hidden and new message arrives
+  const bumpUnread = useCallback(() => {
+    if (!document.hidden) return
+    unreadRef.current++
+    const count = unreadRef.current
+    if (!flashRef.current) {
+      flashRef.current = setInterval(() => {
+        document.title = document.title === originalTitleRef.current
+          ? `(${count}) 新消息`
+          : originalTitleRef.current
+      }, 800)
+    } else {
+      // update count in the flash text immediately
+      document.title = `(${count}) 新消息`
+    }
+  }, [])
+
+  // Stop flashing when page becomes visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        unreadRef.current = 0
+        if (flashRef.current) {
+          clearInterval(flashRef.current)
+          flashRef.current = null
+        }
+        document.title = originalTitleRef.current
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
 
   // Derive key
   useEffect(() => {
@@ -113,6 +149,7 @@ export function useMessages(
       }
 
       if (msg.type === 'message' && msg.payload) {
+        bumpUnread()
         const chatMsg: ChatMessage = {
           id: msg.message_id || crypto.randomUUID(),
           room_id: msg.room_id,
