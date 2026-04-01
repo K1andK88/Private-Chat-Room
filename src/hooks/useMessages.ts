@@ -40,12 +40,7 @@ export function useMessages(
 
   // Tab flash when page is hidden and new message arrives
   const bumpUnread = useCallback(() => {
-    console.log('[flash] bumpUnread called, hidden=', document.hidden)
-    if (!document.hidden) return
-    unreadRef.current++
-    const count = unreadRef.current
-    console.log('[flash] unread=', count, 'starting flash')
-
+    // Taskbar flash feature shelved — kept as stub for future use
   }, [])
 
   // Stop flashing when page becomes visible
@@ -63,6 +58,16 @@ export function useMessages(
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
+
+  // Clear messages when room changes
+  useEffect(() => {
+    setMessages([])
+    setError(null)
+    setReplyTo(null)
+    pendingRef.current.clear()
+    imageCacheRef.current.forEach((url) => URL.revokeObjectURL(url))
+    imageCacheRef.current.clear()
+  }, [roomId])
 
   // Derive key
   useEffect(() => {
@@ -142,7 +147,6 @@ export function useMessages(
       }
 
       if (msg.type === 'message' && msg.payload) {
-        console.log('[flash] received broadcast message, calling bumpUnread')
         bumpUnread()
         const chatMsg: ChatMessage = {
           id: msg.message_id || crypto.randomUUID(),
