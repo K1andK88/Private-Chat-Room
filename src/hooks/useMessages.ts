@@ -10,6 +10,7 @@ import {
 import {
   validateImageFile, getImageDimensions, generateThumbnail, readFileAsArrayBuffer,
 } from '../lib/imageUtils'
+import { savePendingUpload, getPendingUploads, removePendingUpload } from '../lib/pendingUploads'
 import type {
   ChatMessage, BroadcastMessage, MessageAction, MessageStatus,
   MessageType, FileMeta, EncryptedPayload,
@@ -187,6 +188,36 @@ export function useMessages(
     }
   }, [roomId, loadHistory])
 
+  // Retry pending image uploads from IndexedDB
+  const retryPendingUploads = useCallback(async () => {
+    if (!roomId || !encryptionKey) return
+    const pending = await getPendingUploads()
+    const roomPending = pending.filter((p) => p.roomId === roomId)
+
+    for (const item of roomPending) {
+      // Skip if message has expired
+      if (Date.now() - item.createdAt >= MESSAGE_TTL_MS) {
+        // Delete expired message from DB
+        await supabase.from('messages').delete().eq('id', item.msgId)
+        await removePendingUpload(item.msgId)
+        continue
+      }
+
+      try {
+        await uploadEncryptedFile(item.roomId, item.msgId, new Uint8Array(item.uploadData))
+        await removePendingUpload(item.msgId)
+        console.log('[image] retry upload succeeded:', item.msgId)
+      } catch {
+        // Still failing, keep in IndexedDB for next attempt
+        console.log('[image] retry upload still failing:', item.msgId)
+      }
+    }
+  }, [roomId, encryptionKey])
+
+  useEffect(() => {
+    retryPendingUploads()
+  }, [retryPendingUploads])
+
   // TTL cleanup
   useEffect(() => {
     if (cleanupRef.current) clearInterval(cleanupRef.current)
@@ -322,6 +353,7 @@ export function useMessages(
       setSendingImage(true)
       setError(null)
       const msgId = crypto.randomUUID()
+      let uploadData: Uint8Array | undefined
 
       try {
         const [dimensions, thumbnail] = await Promise.all([
@@ -334,7 +366,7 @@ export function useMessages(
         const fileKey = buildFileKey(roomId, msgId)
 
         // Prepend IV to encrypted data: [12 bytes IV][ciphertext...]
-        const uploadData = new Uint8Array(IV_LENGTH + encryptedData.length)
+        uploadData = new Uint8Array(IV_LENGTH + encryptedData.length)
         uploadData.set(fileIv, 0)
         uploadData.set(encryptedData, IV_LENGTH)
 
@@ -399,12 +431,26 @@ export function useMessages(
           onRoomDeleted?.()
           return
         }
+        // If DB save succeeded but upload failed, save to IndexedDB for retry
+        if (roomId && typeof uploadData !== 'undefined') {
+          try {
+            await savePendingUpload({
+              msgId,
+              roomId,
+              uploadData: uploadData.buffer.slice(0) as ArrayBuffer,
+              createdAt: Date.now(),
+            })
+            console.log('[image] saved to IndexedDB for retry:', msgId)
+          } catch {
+            // IndexedDB save failed, nothing more we can do
+          }
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId ? { ...m, status: 'failed' as MessageStatus } : m
           )
         )
-        setError('图片发送失败')
+        setError('图片发送失败，将在网络恢复后自动重传')
       } finally {
         setSendingImage(false)
       }
