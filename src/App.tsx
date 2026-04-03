@@ -161,6 +161,8 @@ function ChatApp() {
 
     setRoomPassword(password)
     await joinRoom(existing)
+    // Clean URL parameters after successful join
+    window.history.replaceState({}, '', window.location.pathname)
   }
 
   const clearJoinError = useCallback(() => setJoinError(null), [])
