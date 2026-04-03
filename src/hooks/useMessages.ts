@@ -45,6 +45,7 @@ export function useMessages(
   const unreadCountRef = useRef(0)
   const notifTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeNotifRef = useRef<Notification | null>(null)
+  const bumpUnreadRef = useRef<() => void>(() => {})
 
   // Desktop notification on new message (only when page hidden + enabled)
   const bumpUnread = useCallback((senderNick?: string) => {
@@ -77,6 +78,8 @@ export function useMessages(
       if (activeNotifRef.current === n) activeNotifRef.current = null
     }, 5000)
   }, [notifConfig?.enabled, notifConfig?.sound])
+
+  bumpUnreadRef.current = bumpUnread
 
   // Reset unread when page becomes visible
   useEffect(() => {
@@ -177,7 +180,7 @@ export function useMessages(
       }
 
       if (msg.type === 'message' && msg.payload) {
-        bumpUnread()
+        bumpUnreadRef.current()
         const chatMsg: ChatMessage = {
           id: msg.message_id || crypto.randomUUID(),
           room_id: msg.room_id,
