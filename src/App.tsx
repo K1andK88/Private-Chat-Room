@@ -75,16 +75,6 @@ function ChatApp() {
 
 
   useEffect(() => {
-    if (!nickname || currentRoom) return
-    const params = new URLSearchParams(window.location.search)
-    const room = params.get('r')
-    const password = params.get('p')
-    if (!room || !password) return
-    window.history.replaceState({}, '', window.location.pathname)
-    handleJoinRoom(room, password)
-  }, [nickname, currentRoom])
-
-  useEffect(() => {
     if (currentRoom) setJoinError(null)
   }, [currentRoom])
 
@@ -161,8 +151,6 @@ function ChatApp() {
 
     setRoomPassword(password)
     await joinRoom(existing)
-    // Clean URL parameters after successful join
-    window.history.replaceState({}, '', window.location.pathname)
   }
 
   const clearJoinError = useCallback(() => setJoinError(null), [])
@@ -232,12 +220,10 @@ function ChatApp() {
               </span>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}?r=${currentRoom.name}`
-                  ).then(() => {})
+                  navigator.clipboard.writeText(currentRoom.name).then(() => {})
                 }}
                 className="ml-2 text-txt-4 hover:text-accent-400 text-xs transition"
-                title="复制分享链接"
+                title="复制房间号"
               >
                 📋
               </button>
