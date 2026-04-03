@@ -528,6 +528,62 @@ export function useMessages(
           )
           setError('消息重发失败')
         }
+      } else if (msg.msg_type === 'image') {
+        // Retry image upload from IndexedDB
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, status: 'sending' as MessageStatus } : m
+          )
+        )
+
+        try {
+          if (!roomId) throw new Error('not ready')
+          const pending = await getPendingUploads()
+          const item = pending.find((p) => p.msgId === messageId)
+          if (!item) {
+            // No cached data — cannot retry
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId ? { ...m, status: 'failed' as MessageStatus } : m
+              )
+            )
+            setError('图片重传失败：本地缓存已过期')
+            return
+          }
+
+          await uploadEncryptedFile(item.roomId, item.msgId, new Uint8Array(item.uploadData))
+          await removePendingUpload(item.msgId)
+
+          // Update UI
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId ? { ...m, status: 'sent' as MessageStatus } : m
+            )
+          )
+
+          // Broadcast so other tabs see it
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'message',
+            payload: {
+              type: 'message',
+              sender_nickname: '',
+              room_id: roomId,
+              msg_type: 'image',
+              payload: msg.payload,
+              file_meta_encrypted: msg.file_meta_encrypted,
+              message_id: messageId,
+              timestamp: msg.created_at,
+            } satisfies BroadcastMessage,
+          })
+        } catch {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId ? { ...m, status: 'failed' as MessageStatus } : m
+            )
+          )
+          setError('图片重传失败')
+        }
       }
     },
     [messages, encryptionKey, roomId, nickname, encryptPayload]

@@ -31,8 +31,8 @@ export async function savePendingUpload(item: PendingUpload): Promise<void> {
   const tx = db.transaction(STORE_NAME, 'readwrite')
   tx.objectStore(STORE_NAME).put(item)
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => { db.close(); reject(tx.error) }
   })
 }
 
@@ -42,8 +42,8 @@ export async function getPendingUploads(): Promise<PendingUpload[]> {
   const store = tx.objectStore(STORE_NAME)
   const request = store.getAll()
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
+    request.onsuccess = () => { db.close(); resolve(request.result) }
+    request.onerror = () => { db.close(); reject(request.error) }
   })
 }
 
@@ -52,8 +52,8 @@ export async function removePendingUpload(msgId: string): Promise<void> {
   const tx = db.transaction(STORE_NAME, 'readwrite')
   tx.objectStore(STORE_NAME).delete(msgId)
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => { db.close(); reject(tx.error) }
   })
 }
 
@@ -62,7 +62,7 @@ export async function clearPendingUploads(): Promise<void> {
   const tx = db.transaction(STORE_NAME, 'readwrite')
   tx.objectStore(STORE_NAME).clear()
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => { db.close(); reject(tx.error) }
   })
 }
