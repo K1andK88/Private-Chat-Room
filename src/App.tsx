@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import { ThemeProvider } from './lib/theme'
 import { deriveKey, decryptMessage, encryptMessage } from './lib/crypto'
 import { useRoom } from './hooks/useRoom'
-import { useMessages } from './hooks/useMessages'
+import { useMessages, type NotificationConfig } from './hooks/useMessages'
 import NicknameEntry from './components/Login'
 import Header from './components/Header'
 import RoomEntry from './components/RoomEntry'
@@ -18,6 +18,19 @@ function ChatApp() {
     return localStorage.getItem('pcr-access') === gatePassword
   })
   const [gateInput, setGateInput] = useState('')
+  const [notifConfig, setNotifConfig] = useState<NotificationConfig>(() => {
+    const saved = localStorage.getItem('pcr-notif-config')
+    if (saved) try { return JSON.parse(saved) } catch {}
+    return { enabled: false, sound: false }
+  })
+
+  const updateNotifConfig = useCallback((update: Partial<NotificationConfig>) => {
+    setNotifConfig(prev => {
+      const next = { ...prev, ...update }
+      localStorage.setItem('pcr-notif-config', JSON.stringify(next))
+      return next
+    })
+  }, [])
   const [gateError, setGateError] = useState(false)
 
   const [nickname, setNickname] = useState<string | null>(() => {
@@ -56,7 +69,7 @@ function ChatApp() {
     leaveRoom()
     setRoomPassword('')
     setJoinError('房间已被删除')
-  })
+  }, notifConfig)
 
   // ── ALL hooks must be declared BEFORE any conditional return ──
 
@@ -204,6 +217,8 @@ function ChatApp() {
         nickname={nickname}
         onLeaveRoom={currentRoom ? handleLeaveRoom : undefined}
         onLogout={handleLogout}
+        notifConfig={notifConfig}
+        onUpdateNotifConfig={updateNotifConfig}
       />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0">

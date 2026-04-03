@@ -20,11 +20,17 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 const IV_LENGTH = 12
 
+export interface NotificationConfig {
+  enabled: boolean
+  sound: boolean
+}
+
 export function useMessages(
   roomId: string | null,
   roomPassword: string,
   nickname: string,
-  onRoomDeleted?: () => void
+  onRoomDeleted?: () => void,
+  notifConfig?: NotificationConfig
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null)
@@ -36,25 +42,47 @@ export function useMessages(
   const cleanupRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pendingRef = useRef<Map<string, string>>(new Map())
   const imageCacheRef = useRef<Map<string, string>>(new Map())
-  const unreadRef = useRef(0)
-  const flashRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const originalTitleRef = useRef(document.title)
+  const unreadCountRef = useRef(0)
+  const notifTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeNotifRef = useRef<Notification | null>(null)
 
-  // Tab flash when page is hidden and new message arrives
-  const bumpUnread = useCallback(() => {
-    // Taskbar flash feature shelved — kept as stub for future use
-  }, [])
+  // Desktop notification on new message (only when page hidden + enabled)
+  const bumpUnread = useCallback((senderNick?: string) => {
+    if (!document.hidden) return
+    if (!notifConfig?.enabled) return
+    if (Notification.permission !== 'granted') return
 
-  // Stop flashing when page becomes visible
+    unreadCountRef.current += 1
+    const count = unreadCountRef.current
+
+    // Close previous timeout
+    if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current)
+
+    // Close previous notification and create updated one
+    if (activeNotifRef.current) activeNotifRef.current.close()
+
+    const body = count === 1
+      ? (senderNick ? `${senderNick} 发来新消息` : '新消息')
+      : `${count} 条新消息`
+
+    const n = new Notification('Private Chat', {
+      body,
+      tag: 'chat-message',
+      silent: !notifConfig.sound,
+    })
+    activeNotifRef.current = n
+
+    notifTimeoutRef.current = setTimeout(() => {
+      n.close()
+      if (activeNotifRef.current === n) activeNotifRef.current = null
+    }, 5000)
+  }, [notifConfig?.enabled, notifConfig?.sound])
+
+  // Reset unread when page becomes visible
   useEffect(() => {
     const handleVisibility = () => {
       if (!document.hidden) {
-        unreadRef.current = 0
-        if (flashRef.current) {
-          clearInterval(flashRef.current)
-          flashRef.current = null
-        }
-        document.title = originalTitleRef.current
+        unreadCountRef.current = 0
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
