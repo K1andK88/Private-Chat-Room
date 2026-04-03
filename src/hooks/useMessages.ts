@@ -51,6 +51,7 @@ export function useMessages(
   const bumpUnread = useCallback((senderNick?: string) => {
     if (!document.hidden) return
     if (!notifConfig?.enabled) return
+    if (typeof Notification === 'undefined') return
     if (Notification.permission !== 'granted') return
 
     unreadCountRef.current += 1

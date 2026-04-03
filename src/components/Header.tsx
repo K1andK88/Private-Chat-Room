@@ -51,6 +51,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   }
 
   const handleToggleNotif = () => {
+    if (typeof Notification === 'undefined') return
     if (notifConfig.enabled) {
       // Turn off
       onUpdateNotifConfig({ enabled: false })
@@ -74,7 +75,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
     onUpdateNotifConfig({ sound: !notifConfig.sound })
   }
 
-  const permissionDenied = notifConfig.enabled === false && Notification.permission === 'denied'
+  const permissionDenied = typeof Notification !== 'undefined' && notifConfig.enabled === false && Notification.permission === 'denied'
 
   return (
     <header className="h-14 bg-surface-2/80 backdrop-blur border-b border-bdr flex items-center justify-between px-4 shrink-0">
