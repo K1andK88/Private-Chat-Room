@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface RoomEntryProps {
   onCreateRoom: (name: string, password: string) => void
@@ -21,18 +21,6 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error, on
   const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose')
   const [roomName, setRoomName] = useState('')
   const [roomPassword, setRoomPassword] = useState('')
-  const [prefilled, setPrefilled] = useState(false)
-
-  // If URL has ?r=ROOM (no &p=), pre-fill room name and show join form
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const room = params.get('r')
-    if (room) {
-      setRoomName(room.toUpperCase())
-      setMode('join')
-      setPrefilled(true)
-    }
-  }, [])
 
   const handleRandomId = () => {
     setRoomName(generateRoomId())
@@ -52,7 +40,6 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error, on
     setMode('choose')
     setRoomName('')
     setRoomPassword('')
-    setPrefilled(false)
     onClearError()
   }
 
@@ -119,9 +106,8 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error, on
                   className={`flex-1 px-4 py-2.5 bg-surface-3 border rounded-lg text-txt text-sm focus:outline-none focus:border-accent-500 font-mono tracking-wider text-center ${
                     roomError ? 'border-red-500' : 'border-bdr'
                   }`}
-                  autoFocus={!prefilled}
+                  autoFocus
                   maxLength={32}
-                  readOnly={prefilled}
                 />
                 {mode === 'create' && (
                   <button
@@ -145,7 +131,7 @@ export default function RoomEntry({ onCreateRoom, onJoinRoom, loading, error, on
                   passwordError ? 'border-red-500' : 'border-bdr'
                 }`}
                 maxLength={64}
-                autoFocus={prefilled}
+                autoFocus={false}
               />
               <p className="text-[10px] text-txt-4 mt-1">
                 🔑 相同房间号 + 相同密码 = 能互相解密消息
