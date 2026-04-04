@@ -23,7 +23,7 @@ function ChatApp() {
     const saved = localStorage.getItem('pcr-notif-config')
     if (saved) try {
       const parsed = JSON.parse(saved)
-      return { enabled: false, sound: false, soundId: parsed.soundId || 'system', volume: parsed.volume ?? 0.8 }
+      return { enabled: false, sound: false, soundId: 'system', volume: parsed.volume ?? 0.8 }
     } catch { /* ignore */ }
     return { enabled: false, sound: false, soundId: 'system', volume: 0.8 }
   })
