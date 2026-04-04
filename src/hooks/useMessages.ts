@@ -11,6 +11,7 @@ import {
   validateImageFile, getImageDimensions, generateThumbnail, readFileAsArrayBuffer,
 } from '../lib/imageUtils'
 import { savePendingUpload, getPendingUploads, removePendingUpload } from '../lib/pendingUploads'
+import { playNotificationSound } from '../lib/sound'
 import type {
   ChatMessage, BroadcastMessage, MessageAction, MessageStatus,
   MessageType, FileMeta, EncryptedPayload,
@@ -23,6 +24,8 @@ const IV_LENGTH = 12
 export interface NotificationConfig {
   enabled: boolean
   sound: boolean
+  soundId: string    // 'system' | 'ding' | 'bell' | 'bubble' | 'synth' | 'marimba' | 'custom'
+  volume: number    // 0..1
 }
 
 export function useMessages(
@@ -70,15 +73,20 @@ export function useMessages(
     const n = new Notification('Private Chat', {
       body,
       tag: 'chat-message',
-      silent: !notifConfig.sound,
+      silent: notifConfig.soundId !== 'system' || !notifConfig.sound,
     })
     activeNotifRef.current = n
+
+    // Play custom/built-in sound via Audio API (not system default)
+    if (notifConfig.sound && notifConfig.soundId !== 'system') {
+      playNotificationSound(notifConfig.soundId, notifConfig.volume)
+    }
 
     notifTimeoutRef.current = setTimeout(() => {
       n.close()
       if (activeNotifRef.current === n) activeNotifRef.current = null
     }, 5000)
-  }, [notifConfig?.enabled, notifConfig?.sound])
+  }, [notifConfig?.enabled, notifConfig?.sound, notifConfig?.soundId, notifConfig?.volume])
 
   bumpUnreadRef.current = bumpUnread
 

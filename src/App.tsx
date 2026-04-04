@@ -21,7 +21,7 @@ function ChatApp() {
   const [notifConfig, setNotifConfig] = useState<NotificationConfig>(() => {
     const saved = localStorage.getItem('pcr-notif-config')
     if (saved) try { return JSON.parse(saved) } catch {}
-    return { enabled: false, sound: false }
+    return { enabled: false, sound: false, soundId: 'system', volume: 0.8 }
   })
 
   const updateNotifConfig = useCallback((update: Partial<NotificationConfig>) => {
