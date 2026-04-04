@@ -12,7 +12,7 @@
 - **房间号唯一** — 创建时检测房间号是否已存在，已存在则提示
 - **消息撤回** — 支持发送后 5 分钟内撤回
 - **引用回复 & @提及** — 完整的聊天交互体验
-- **桌面通知** — 可选浏览器通知弹窗 + 提示音，仅页面不可见时触发
+- **桌面通知** — 可选浏览器通知弹窗 + 可自定义提示音（内置/系统/自定义上传），仅页面不可见时触发
 - **图片上传重试** — Storage 上传失败时自动缓存至 IndexedDB，支持手动重传
 - **昵称加密** — 发送者昵称加密存储在消息体中，数据库不暴露身份信息
 - **多主题** — 浅色/深色/跟随系统，绿色暖色调
@@ -146,6 +146,8 @@ Private-Chat-Room/
 ├── .env.example                # 环境变量模板
 ├── supabase/
 │   └── schema.sql              # 完整数据库初始化（rooms + messages + Storage + RLS）
+├── public/
+│   └── sounds/                # 内置提示音 (mp3)
 └── src/
     ├── main.tsx                # React 入口
     ├── App.tsx                 # 主应用组件
@@ -156,11 +158,12 @@ Private-Chat-Room/
     │   ├── storage.ts          # 加密文件上传/下载
     │   ├── imageUtils.ts       # 图片处理（缩略图、验证）
     │   ├── pendingUploads.ts    # IndexedDB 图片重传缓存
+    │   ├── sound.ts            # 音效播放 + 自定义音效 IndexedDB
     │   ├── theme.tsx           # 主题切换
     │   └── types.ts            # TypeScript 类型
     ├── components/
     │   ├── Login.tsx           # 昵称登录
-    │   ├── Header.tsx          # 顶部导航
+    │   ├── Header.tsx          # 顶部导航 + 通知/音效设置
     │   ├── RoomEntry.tsx       # 房间创建/加入
     │   ├── MessageList.tsx     # 消息列表 + 图片预览
     │   ├── MessageInput.tsx    # 消息输入框 + 表情
