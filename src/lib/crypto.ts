@@ -74,14 +74,14 @@ export async function encryptMessage(
   const data = encoder.encode(plaintext)
 
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv as unknown as ArrayBuffer },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
     data
   )
 
   return {
     ciphertext: arrayBufferToBase64(encrypted),
-    iv: arrayBufferToBase64(iv.buffer),
+    iv: arrayBufferToBase64(iv.buffer as ArrayBuffer),
   }
 }
 
@@ -94,9 +94,9 @@ export async function decryptMessage(
   const ciphertext = base64ToUint8Array(payload.ciphertext)
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: iv as unknown as ArrayBuffer },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    new Uint8Array(ciphertext) as unknown as ArrayBuffer
+    ciphertext as BufferSource
   )
 
   const decoder = new TextDecoder()
@@ -110,9 +110,9 @@ export async function encryptBuffer(
 ): Promise<{ ciphertext: Uint8Array; iv: Uint8Array }> {
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv as unknown as ArrayBuffer },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    data as unknown as ArrayBuffer
+    data as BufferSource
   )
   return {
     ciphertext: new Uint8Array(encrypted),
@@ -127,9 +127,9 @@ export async function decryptBuffer(
   key: CryptoKey
 ): Promise<Uint8Array> {
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: iv as unknown as ArrayBuffer },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    ciphertext as unknown as ArrayBuffer
+    ciphertext as BufferSource
   )
   return new Uint8Array(decrypted)
 }

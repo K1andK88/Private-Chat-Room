@@ -358,6 +358,7 @@ export function useMessages(
         setMessages((prev) =>
           prev.map((m) => (m.id === msgId ? { ...m, payload, status: 'sent' as MessageStatus, _plaintext: undefined } : m))
         )
+        pendingRef.current.delete(msgId)
 
         // Save to DB first, then broadcast
         await saveToDB({ ...optimisticMsg, payload, status: 'sent' })

@@ -304,8 +304,10 @@ export default function MessageList({
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'text') return
       if (decryptedMessages.has(msg.id) && msg.status !== 'sending') return
-      const text = await getDecrypted(msg)
-      setDecryptedMessages((prev) => new Map(prev).set(msg.id, text))
+      try {
+        const text = await getDecrypted(msg)
+        setDecryptedMessages((prev) => new Map(prev).set(msg.id, text))
+      } catch { /* skip failed decryption */ }
     })
   }, [messages, getDecrypted])
 
@@ -314,18 +316,16 @@ export default function MessageList({
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'image') return
       if (thumbnails.has(msg.id)) return
-      // Extract nickname from encrypted payload
-      if (!msg._nick && msg.payload.ciphertext) {
-        try {
-          const text = await getDecrypted(msg)
-          // getDecrypted handles _nick caching internally
-          void text
-        } catch { /* ignore */ }
-      }
-      const meta = await getFileMeta(msg)
-      if (meta) {
-        setThumbnails((prev) => new Map(prev).set(msg.id, meta))
-      }
+      try {
+        // Extract nickname from encrypted payload
+        if (!msg._nick && msg.payload.ciphertext) {
+          await getDecrypted(msg)
+        }
+        const meta = await getFileMeta(msg)
+        if (meta) {
+          setThumbnails((prev) => new Map(prev).set(msg.id, meta))
+        }
+      } catch { /* skip failed decryption */ }
     })
   }, [messages, getFileMeta, getDecrypted])
 
