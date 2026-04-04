@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { Theme } from '../lib/theme'
 import { useTheme } from '../lib/theme'
 import type { NotificationConfig } from '../hooks/useMessages'
-import { BUILT_IN_SOUNDS, previewSound, saveCustomSound, loadCustomSound, removeCustomSound } from '../lib/sound'
+import { BUILT_IN_SOUNDS, previewSound, stopCurrentSound, unlockAudio, saveCustomSound, loadCustomSound, removeCustomSound } from '../lib/sound'
 
 interface HeaderProps {
   nickname: string
@@ -16,6 +16,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   const { theme, setTheme } = useTheme()
   const [showSettings, setShowSettings] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
+  const [playingId, setPlayingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [hasCustom, setHasCustom] = useState(false)
@@ -80,15 +81,28 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   }
 
   const handlePreview = async (id: string) => {
+    // If currently playing this sound, stop it
+    if (playingId === id) {
+      stopCurrentSound()
+      setPlayingId(null)
+      return
+    }
     setPreviewError(null)
+    unlockAudio()
+    setPlayingId(id)
     if (id === 'custom' && !hasCustom) {
       fileInputRef.current?.click()
+      setPlayingId(null)
       return
     }
     const ok = await previewSound(id, notifConfig.volume)
     if (!ok) {
+      setPlayingId(null)
       setPreviewError('此格式无法播放，建议选择其他格式')
       setTimeout(() => setPreviewError(null), 3000)
+    } else {
+      // Auto-clear playing state after a reasonable time
+      setTimeout(() => setPlayingId(prev => prev === id ? null : prev), 2000)
     }
   }
 
@@ -217,10 +231,10 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
                           <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => { e.preventDefault(); handlePreview(opt.id) }}
-                              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-surface-hover text-txt-3 hover:text-txt transition"
-                              title="试听"
+                              className={`text-[10px] px-1.5 py-0.5 rounded hover:bg-surface-hover transition ${playingId === opt.id ? 'text-accent-500' : 'text-txt-3 hover:text-txt'}`}
+                              title={playingId === opt.id ? '停止' : '试听'}
                             >
-                              ▶
+                              {playingId === opt.id ? '■' : '▶'}
                             </button>
                             {showCustom && (
                               <button

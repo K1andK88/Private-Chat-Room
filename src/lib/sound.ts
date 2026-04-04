@@ -22,16 +22,40 @@ export const BUILT_IN_SOUNDS: SoundOption[] = [
 
 let currentAudio: HTMLAudioElement | null = null
 
+/** Stop any currently playing preview/preview sound. */
+export function stopCurrentSound(): void {
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.src = ''
+    currentAudio = null
+  }
+}
+
+/** Unlock browser Audio API by playing a silent buffer. */
+let audioUnlocked = false
+export function unlockAudio(): void {
+  if (audioUnlocked) return
+  try {
+    const ctx = new AudioContext()
+    const buf = ctx.createBuffer(1, 1, 22050)
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    src.start(0)
+    src.addEventListener('ended', () => ctx.close())
+    audioUnlocked = true
+  } catch {
+    // Silently fail
+  }
+}
+
 /**
  * Preview a sound (for the settings UI).
  * Returns true if playback succeeded, false if the format is unsupported.
  */
 export async function previewSound(soundId: string, volume: number): Promise<boolean> {
   // Stop any currently playing preview
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio = null
-  }
+  stopCurrentSound()
 
   if (soundId === 'system') {
     // Can't really preview system sound, just return true
