@@ -19,23 +19,14 @@ function ChatApp() {
   })
   const [gateInput, setGateInput] = useState('')
   const [notifConfig, setNotifConfig] = useState<NotificationConfig>(() => {
+    // Restore sound preference and volume, but always start with notifications OFF
     const saved = localStorage.getItem('pcr-notif-config')
-    if (saved) try { return JSON.parse(saved) } catch {}
+    if (saved) try {
+      const parsed = JSON.parse(saved)
+      return { enabled: false, sound: false, soundId: parsed.soundId || 'system', volume: parsed.volume ?? 0.8 }
+    } catch { /* ignore */ }
     return { enabled: false, sound: false, soundId: 'system', volume: 0.8 }
   })
-
-  // On mount: if saved config says enabled, verify permission is actually granted
-  useEffect(() => {
-    if (notifConfig.enabled) {
-      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-        // Permission not actually granted — reset to disabled
-        const reset = { enabled: false, sound: false, soundId: 'system' as string, volume: 0.8 }
-        localStorage.setItem('pcr-notif-config', JSON.stringify(reset))
-        setNotifConfig(reset)
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const updateNotifConfig = useCallback((update: Partial<NotificationConfig>) => {
     setNotifConfig(prev => {
