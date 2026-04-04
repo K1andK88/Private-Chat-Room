@@ -24,6 +24,19 @@ function ChatApp() {
     return { enabled: false, sound: false, soundId: 'system', volume: 0.8 }
   })
 
+  // On mount: if saved config says enabled, verify permission is actually granted
+  useEffect(() => {
+    if (notifConfig.enabled) {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+        // Permission not actually granted — reset to disabled
+        const reset = { enabled: false, sound: false, soundId: 'system' as string, volume: 0.8 }
+        localStorage.setItem('pcr-notif-config', JSON.stringify(reset))
+        setNotifConfig(reset)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const updateNotifConfig = useCallback((update: Partial<NotificationConfig>) => {
     setNotifConfig(prev => {
       const next = { ...prev, ...update }

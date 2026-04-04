@@ -12,11 +12,7 @@ export interface SoundOption {
 
 export const BUILT_IN_SOUNDS: SoundOption[] = [
   { id: 'system', label: '系统默认' },
-  { id: 'ding', label: '叮', src: '/sounds/ding.mp3' },
   { id: 'bell', label: '铃声', src: '/sounds/bell.mp3' },
-  { id: 'bubble', label: '气泡', src: '/sounds/bubble.mp3' },
-  { id: 'synth', label: '合成', src: '/sounds/synth.mp3' },
-  { id: 'marimba', label: '木琴', src: '/sounds/marimba.mp3' },
   { id: 'custom', label: '自定义', custom: true },
 ]
 
