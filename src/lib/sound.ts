@@ -33,23 +33,31 @@ export function unlockAudio(): void {
   if (audioUnlocked) return
   try {
     const ctx = new AudioContext()
-    const buf = ctx.createBuffer(1, 1, 22050)
-    const src = ctx.createBufferSource()
-    src.buffer = buf
-    src.connect(ctx.destination)
-    src.start(0)
-    src.addEventListener('ended', () => ctx.close())
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => ctx.close())
+    } else {
+      const buf = ctx.createBuffer(1, 1, 22050)
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      src.start(0)
+      src.addEventListener('ended', () => ctx.close())
+    }
     audioUnlocked = true
   } catch {
-    // Silently fail
+    // Silently fail — will retry next time since audioUnlocked stays false
   }
 }
+
+/** Callback type for when preview sound finishes playing. */
+export type PreviewEndCallback = () => void
 
 /**
  * Preview a sound (for the settings UI).
  * Returns true if playback succeeded, false if the format is unsupported.
+ * onEnded is called when playback finishes naturally.
  */
-export async function previewSound(soundId: string, volume: number): Promise<boolean> {
+export async function previewSound(soundId: string, volume: number, onEnded?: PreviewEndCallback): Promise<boolean> {
   // Stop any currently playing preview
   stopCurrentSound()
 
@@ -85,8 +93,9 @@ export async function previewSound(soundId: string, volume: number): Promise<boo
       currentAudio = null
       return false
     }
-    // Revoke object URL after playback ends
+    // Revoke object URL and notify caller after playback ends
     if (objectUrl) audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl!))
+    audio.addEventListener('ended', () => onEnded?.())
     return true
   } catch {
     return false
@@ -102,21 +111,21 @@ export async function playNotificationSound(
   volume: number,
 ): Promise<void> {
   if (soundId === 'system') {
-    // System sound is handled by Notification API (silent: false)
     return
   }
 
   const option = BUILT_IN_SOUNDS.find(s => s.id === soundId)
   if (!option) return
 
+  let objectUrl: string | undefined
   try {
     let audio: HTMLAudioElement
 
     if (option.custom) {
       const blob = await loadCustomSound()
       if (!blob) return
-      audio = new Audio(URL.createObjectURL(blob))
-      audio.addEventListener('ended', () => URL.revokeObjectURL(audio.src))
+      objectUrl = URL.createObjectURL(blob)
+      audio = new Audio(objectUrl)
     } else if (option.src) {
       audio = new Audio(option.src)
     } else {
@@ -124,9 +133,15 @@ export async function playNotificationSound(
     }
 
     audio.volume = Math.max(0, Math.min(1, volume))
-    await audio.play()
+    try {
+      await audio.play()
+    } catch {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      return
+    }
+    if (objectUrl) audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl!))
   } catch {
-    // Silently fail — notification sound is best-effort
+    // Silently fail
   }
 }
 

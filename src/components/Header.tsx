@@ -95,14 +95,13 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
       setPlayingId(null)
       return
     }
-    const ok = await previewSound(id, notifConfig.volume)
+    const ok = await previewSound(id, notifConfig.volume, () => {
+      setPlayingId(prev => prev === id ? null : prev)
+    })
     if (!ok) {
       setPlayingId(null)
       setPreviewError('此格式无法播放，建议选择其他格式')
       setTimeout(() => setPreviewError(null), 3000)
-    } else {
-      // Auto-clear playing state after a reasonable time
-      setTimeout(() => setPlayingId(prev => prev === id ? null : prev), 2000)
     }
   }
 

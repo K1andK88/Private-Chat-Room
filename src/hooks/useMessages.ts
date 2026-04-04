@@ -526,10 +526,13 @@ export function useMessages(
     [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted]
   )
 
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
+
   // Retry failed message
   const retryMessage = useCallback(
     async (messageId: string) => {
-      const msg = messages.find((m) => m.id === messageId)
+      const msg = messagesRef.current.find((m) => m.id === messageId)
       if (!msg || msg.status !== 'failed') return
 
       if (msg.msg_type === 'text') {
@@ -627,7 +630,7 @@ export function useMessages(
         }
       }
     },
-    [messages, encryptionKey, roomId, nickname, encryptPayload]
+    [encryptionKey, roomId, nickname, encryptPayload]
   )
 
   // Revoke message
