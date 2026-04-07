@@ -146,7 +146,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   const soundEnabled = notifConfig.enabled && notifConfig.sound
 
   return (
-    <header className="h-14 bg-surface-2/80 backdrop-blur border-b border-bdr flex items-center justify-between px-4 shrink-0">
+    <header className="h-14 bg-surface-2/80 backdrop-blur border-b border-bdr flex items-center justify-between px-4 shrink-0 relative z-10">
       <div className="flex items-center gap-2">
         <span className="text-lg">🔒</span>
         <span className="font-semibold text-txt text-sm">Private Chat</span>
