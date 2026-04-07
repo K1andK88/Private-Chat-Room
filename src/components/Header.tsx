@@ -160,7 +160,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
             <span>{notifConfig.enabled ? '🔔' : '🔕'}</span>
           </button>
           {showSettings && (
-            <div className="absolute right-0 top-full mt-1 w-64 bg-surface-2 border border-bdr rounded-lg shadow-xl py-2 z-50 max-h-[80vh] overflow-y-auto">
+            <div className="absolute right-0 top-full mt-1 w-64 bg-surface-2 border border-bdr rounded-lg shadow-xl py-2 z-[60] max-h-[80vh] overflow-y-auto">
               <div className="px-3 pb-1.5 text-[10px] font-medium text-txt-3 uppercase tracking-wider">通知设置</div>
 
               {/* Enable notification */}
