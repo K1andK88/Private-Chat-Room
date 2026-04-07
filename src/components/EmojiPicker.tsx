@@ -20,7 +20,7 @@ export default function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
 
   return (
     <div
-      className="absolute bottom-full left-0 mb-2 bg-surface-3 border border-bdr rounded-xl shadow-xl z-20 w-[280px]"
+      className="absolute bottom-full left-0 mb-1 sm:mb-2 bg-surface-3 border border-bdr rounded-xl shadow-xl z-20 w-[280px] max-w-[calc(100vw-2rem)]"
       ref={ref}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-bdr">

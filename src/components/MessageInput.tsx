@@ -201,7 +201,7 @@ export default function MessageInput({
         {showMentions && filteredUsers.length > 0 && (
           <div
             ref={mentionsRef}
-            className="absolute bottom-full left-3 mb-1 bg-surface-3 border border-bdr rounded-lg shadow-xl overflow-hidden z-10 min-w-[160px]"
+            className="absolute bottom-full left-3 mb-1 bg-surface-3 border border-bdr rounded-lg shadow-xl overflow-hidden z-10 min-w-[160px] max-w-[calc(100vw-2rem)]"
           >
             {filteredUsers.map((u) => (
               <button
@@ -254,6 +254,7 @@ export default function MessageInput({
             placeholder={disabled ? '加入房间后发送消息...' : '输入消息... (@提及)'}
             disabled={disabled}
             rows={1}
+            enterKeyHint="send"
             className="flex-1 px-4 py-2.5 bg-surface-3 border border-bdr rounded-xl text-txt text-sm placeholder-txt-3 focus:outline-none focus:border-accent-500 resize-none disabled:opacity-40"
           />
           <button

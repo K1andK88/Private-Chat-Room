@@ -28,13 +28,14 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   // Close settings dropdown on outside click
   useEffect(() => {
     if (!showSettings) return
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
         setShowSettings(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('touchstart', handleClick)
+    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('touchstart', handleClick) }
   }, [showSettings])
 
   const cycleTheme = () => {
@@ -160,7 +161,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
             <span>{notifConfig.enabled ? '🔔' : '🔕'}</span>
           </button>
           {showSettings && (
-            <div className="absolute right-0 top-full mt-1 w-64 bg-surface-2 border border-bdr rounded-lg shadow-xl py-2 z-[60] max-h-[80vh] overflow-y-auto">
+            <div className="absolute right-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] bg-surface-2 border border-bdr rounded-lg shadow-xl py-2 z-[60] max-h-[80vh] overflow-y-auto">
               <div className="px-3 pb-1.5 text-[10px] font-medium text-txt-3 uppercase tracking-wider">通知设置</div>
 
               {/* Enable notification */}

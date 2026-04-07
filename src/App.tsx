@@ -218,20 +218,20 @@ function ChatApp() {
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {currentRoom && encryptionKey ? (
           <>
-            <div className="h-12 bg-surface-2/50 border-b border-bdr flex items-center px-4 shrink-0">
-              <span className="text-sm font-medium text-txt font-mono tracking-wider">
+            <div className="h-10 sm:h-12 bg-surface-2/50 border-b border-bdr flex items-center px-3 sm:px-4 shrink-0">
+              <span className="text-sm font-medium text-txt font-mono tracking-wider truncate">
                 {currentRoom.name}
               </span>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(currentRoom.name).then(() => {})
                 }}
-                className="ml-2 text-txt-4 hover:text-accent-400 text-xs transition"
+                className="ml-2 text-txt-4 hover:text-accent-400 text-xs transition hidden sm:inline"
                 title="复制房间号"
               >
                 📋
               </button>
-              <span className="ml-2 text-xs text-txt-4">
+              <span className="ml-2 text-xs text-txt-4 shrink-0">
                 · {onlineUsers.length} 人在线
               </span>
               {msgError && (
