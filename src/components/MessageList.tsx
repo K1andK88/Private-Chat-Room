@@ -388,8 +388,15 @@ export default function MessageList({
   messages, myNickname, getDecrypted, getFileMeta, loadOriginalImage,
   onReply, onRevoke, onRetry,
 }: MessageListProps) {
-  const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map())
-  const [thumbnails, setThumbnails] = useState<Map<string, FileMeta>>(new Map())
+  const [decryptedVersion, setDecryptedVersion] = useState(0)
+  const [thumbnailVersion, setThumbnailVersion] = useState(0)
+  const decryptedRef = useRef<Map<string, string>>(new Map())
+  const thumbnailsRef = useRef<Map<string, FileMeta>>(new Map())
+  // Stable references for render — version bumps trigger re-render when cache updates
+  void decryptedVersion
+  void thumbnailVersion
+  const decryptedMessages = decryptedRef.current
+  const thumbnails = thumbnailsRef.current
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxFileName, setLightboxFileName] = useState<string>('')
   const [loadingImage, setLoadingImage] = useState<string | null>(null)
@@ -402,31 +409,38 @@ export default function MessageList({
   }, [])
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Decrypt text messages
+  // Decrypt text messages — uses ref to avoid creating new Maps on every decrypt
   useEffect(() => {
+    let changed = false
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'text') return
-      if (decryptedMessages.has(msg.id) && msg.status !== 'sending') return
+      if (decryptedRef.current.has(msg.id) && msg.status !== 'sending') return
       try {
         const text = await getDecrypted(msg)
-        setDecryptedMessages((prev) => new Map(prev).set(msg.id, text))
+        if (!decryptedRef.current.has(msg.id) || decryptedRef.current.get(msg.id) !== text) {
+          decryptedRef.current.set(msg.id, text)
+          changed = true
+          setDecryptedVersion((v) => v + 1)
+        }
       } catch { /* skip failed decryption */ }
     })
+    // Suppress unused-var warning
+    void changed
   }, [messages, getDecrypted])
 
-  // Decrypt file meta for images, also extract nickname from payload
+  // Decrypt file meta for images
   useEffect(() => {
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'image') return
-      if (thumbnails.has(msg.id)) return
+      if (thumbnailsRef.current.has(msg.id)) return
       try {
-        // Extract nickname from encrypted payload
         if (!msg._nick && msg.payload.ciphertext) {
           await getDecrypted(msg)
         }
         const meta = await getFileMeta(msg)
         if (meta) {
-          setThumbnails((prev) => new Map(prev).set(msg.id, meta))
+          thumbnailsRef.current.set(msg.id, meta)
+          setThumbnailVersion((v) => v + 1)
         }
       } catch { /* skip failed decryption */ }
     })

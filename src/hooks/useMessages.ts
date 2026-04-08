@@ -562,6 +562,14 @@ export function useMessages(
           if (!encryptionKey || !roomId) throw new Error('not ready')
           const payload = await encryptPayload(plaintext, nick)
 
+          // Re-save to DB (original save may have failed)
+          await saveToDB({
+            ...msg,
+            payload,
+            status: 'sent',
+            _plaintext: undefined,
+          })
+
           channelRef.current?.send({
             type: 'broadcast',
             event: 'message',
