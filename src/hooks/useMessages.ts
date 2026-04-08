@@ -37,7 +37,19 @@ export function useMessages(
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setErrorRaw] = useState<string | null>(null)
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const setError = useCallback((msg: string | null) => {
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current)
+      errorTimerRef.current = null
+    }
+    setErrorRaw(msg)
+    if (msg) {
+      errorTimerRef.current = setTimeout(() => setErrorRaw(null), 4000)
+    }
+  }, [])
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [sendingImage, setSendingImage] = useState(false)
   const [imagePreview, setImagePreview] = useState<{ file: File; preview: string } | null>(null)
@@ -637,6 +649,9 @@ export function useMessages(
   const revokeMessage = useCallback(
     (messageId: string) => {
       if (!roomId) return
+
+      // Clear any stale error (e.g. "消息发送失败") when user revokes
+      setError(null)
 
       channelRef.current?.send({
         type: 'broadcast',
