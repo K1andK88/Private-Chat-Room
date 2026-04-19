@@ -193,6 +193,8 @@ Private-Chat-Room/
 | Supabase Realtime | 200 并发连接 |
 | Supabase Storage | 1GB |
 
+[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
+
 ## 📜 License
 
 MIT
