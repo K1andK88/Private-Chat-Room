@@ -36,6 +36,18 @@ export default function MessageInput({
     if (replyTo.msg_type === 'image') { setReplyText('📷 图片'); return }
     getDecrypted(replyTo).then(setReplyText).catch(() => setReplyText(''))
   }, [replyTo, getDecrypted])
+
+  // Auto-focus input when component mounts (entering a room)
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  // Auto-focus input when replying
+  useEffect(() => {
+    if (replyTo) {
+      inputRef.current?.focus()
+    }
+  }, [replyTo])
   const mentionsRef = useRef<HTMLDivElement>(null)
 
   const handleSubmit = (e?: React.FormEvent) => {
