@@ -411,7 +411,6 @@ export default function MessageList({
 
   // Decrypt text messages — uses ref to avoid creating new Maps on every decrypt
   useEffect(() => {
-    let changed = false
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'text') return
       if (decryptedRef.current.has(msg.id) && msg.status !== 'sending') return
@@ -419,13 +418,10 @@ export default function MessageList({
         const text = await getDecrypted(msg)
         if (!decryptedRef.current.has(msg.id) || decryptedRef.current.get(msg.id) !== text) {
           decryptedRef.current.set(msg.id, text)
-          changed = true
           setDecryptedVersion((v) => v + 1)
         }
       } catch { /* skip failed decryption */ }
     })
-    // Suppress unused-var warning
-    void changed
   }, [messages, getDecrypted])
 
   // Decrypt file meta for images

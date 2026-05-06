@@ -41,11 +41,7 @@ export default function Header({ nickname, onLeaveRoom, onLogout, notifConfig, o
   const cycleTheme = () => {
     const next: Theme[] = ['light', 'dark', 'system']
     const idx = next.indexOf(theme)
-    const newTheme = next[(idx + 1) % next.length]
-    const r = newTheme === 'light' ? 'light' : newTheme === 'dark' ? 'dark'
-      : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', r)
-    setTheme(newTheme)
+    setTheme(next[(idx + 1) % next.length])
   }
 
   const themeIcon = () => {

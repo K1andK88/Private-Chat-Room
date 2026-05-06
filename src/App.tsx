@@ -48,8 +48,9 @@ function ChatApp() {
   const [roomPassword, setRoomPassword] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
+  const [reconnectVersion, setReconnectVersion] = useState(0)
 
-  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom } = useRoom(nickname ?? '')
+  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence } = useRoom(nickname ?? '')
 
   const {
     messages,
@@ -73,7 +74,7 @@ function ChatApp() {
     leaveRoom()
     setRoomPassword('')
     setJoinError('房间已被删除')
-  }, notifConfig)
+  }, notifConfig, reconnectVersion)
 
   // ── ALL hooks must be declared BEFORE any conditional return ──
 
@@ -81,6 +82,29 @@ function ChatApp() {
   useEffect(() => {
     if (currentRoom) setJoinError(null)
   }, [currentRoom])
+
+  // Scheme B: detect stale connection on tab focus / network restore
+  useEffect(() => {
+    const SYNC_STALE_MS = 30_000
+
+    const checkAndReconnect = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!currentRoom) return
+      const elapsed = Date.now() - lastSyncTimeRef.current
+      if (elapsed > SYNC_STALE_MS) {
+        reconnectPresence()
+        setReconnectVersion((v) => v + 1)
+      }
+    }
+
+    document.addEventListener('visibilitychange', checkAndReconnect)
+    window.addEventListener('online', checkAndReconnect)
+
+    return () => {
+      document.removeEventListener('visibilitychange', checkAndReconnect)
+      window.removeEventListener('online', checkAndReconnect)
+    }
+  }, [currentRoom, reconnectPresence])
 
   // ── Event handlers (not hooks, but keep before returns for clarity) ──
 

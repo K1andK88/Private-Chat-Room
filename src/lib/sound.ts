@@ -162,7 +162,7 @@ function openDB(): Promise<IDBDatabase> {
       }
     }
     req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
+    req.onerror = () => { console.warn('[sound] IndexedDB open failed:', req.error); reject(req.error) }
   })
 }
 

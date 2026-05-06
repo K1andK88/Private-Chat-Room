@@ -15,7 +15,7 @@ function openDB(): Promise<IDBDatabase> {
       }
     }
     request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
+    request.onerror = () => { console.warn('[pendingUploads] IndexedDB open failed:', request.error); reject(request.error) }
   })
 }
 

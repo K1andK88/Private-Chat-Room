@@ -33,7 +33,8 @@ export function useMessages(
   roomPassword: string,
   nickname: string,
   onRoomDeleted?: () => void,
-  notifConfig?: NotificationConfig
+  notifConfig?: NotificationConfig,
+  reconnectVersion?: number
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null)
@@ -61,6 +62,8 @@ export function useMessages(
   const notifTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeNotifRef = useRef<Notification | null>(null)
   const bumpUnreadRef = useRef<() => void>(() => {})
+  const loadHistoryRef = useRef<() => Promise<void>>(async () => {})
+  useEffect(() => { loadHistoryRef.current = loadHistory }, [loadHistory])
 
   // Desktop notification on new message (only when page hidden + enabled)
   const bumpUnread = useCallback((senderNick?: string) => {
@@ -147,7 +150,7 @@ export function useMessages(
         .limit(HISTORY_LIMIT)
 
       if (dbError) {
-        console.error('Load history error:', dbError)
+        console.error('[messages] loadHistory DB error:', dbError.message, dbError.code)
         return
       }
 
@@ -170,11 +173,11 @@ export function useMessages(
 
       setMessages(historyMsgs)
     } catch (err) {
-      console.error('Load history failed:', err)
+      console.error('[messages] loadHistory failed:', err)
     }
   }, [roomId, encryptionKey])
 
-  // Subscribe to broadcast
+  // Subscribe to broadcast (independent of encryption key)
   useEffect(() => {
     if (!roomId) return
 
@@ -227,10 +230,14 @@ export function useMessages(
       }
     })
 
-    ch.subscribe()
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        loadHistoryRef.current()
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[messages] channel subscribe failed:', status)
+      }
+    })
     channelRef.current = ch
-
-    loadHistory()
 
     return () => {
       if (channelRef.current) {
@@ -238,7 +245,12 @@ export function useMessages(
         channelRef.current = null
       }
     }
-  }, [roomId, loadHistory])
+  }, [roomId, reconnectVersion])
+
+  // Load history when encryption key becomes available
+  useEffect(() => {
+    loadHistory()
+  }, [loadHistory])
 
   // Retry pending image uploads from IndexedDB
   const retryPendingUploads = useCallback(async () => {

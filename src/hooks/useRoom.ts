@@ -9,6 +9,11 @@ export function useRoom(nickname: string) {
   const [loading, setLoading] = useState(false)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userIdRef = useRef(`user:${nickname}:${crypto.randomUUID()}`)
+  const lastSyncTimeRef = useRef(Date.now())
+  const currentRoomRef = useRef<Room | null>(null)
+  useEffect(() => { currentRoomRef.current = currentRoom }, [currentRoom])
+  const onlineUsersRef = useRef<PresenceUser[]>([])
+  useEffect(() => { onlineUsersRef.current = onlineUsers }, [onlineUsers])
 
   // Create a new room in Supabase
   const createRoom = useCallback(async (name: string): Promise<Room | null> => {
@@ -48,8 +53,43 @@ export function useRoom(nickname: string) {
     })
 
     roomChannel.on('presence', { event: 'sync' }, () => {
+      lastSyncTimeRef.current = Date.now()
       const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
       setOnlineUsers(Object.values(state).map((p) => p[0]))
+    })
+
+    roomChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await roomChannel.track({
+          id: userIdRef.current,
+          nickname,
+          joined_at: Date.now(),
+        })
+      }
+    })
+
+    channelRef.current = roomChannel
+  }, [nickname])
+
+  // Rebuild presence channel (without leaving the room)
+  const reconnectPresence = useCallback(async () => {
+    const room = currentRoomRef.current
+    if (!room) return
+
+    if (channelRef.current) {
+      await supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+
+    const roomChannel = supabase.channel(`room:${room.id}`, {
+      config: { broadcast: { self: true } },
+    })
+
+    roomChannel.on('presence', { event: 'sync' }, () => {
+      lastSyncTimeRef.current = Date.now()
+      const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
+      const users = Object.values(state).map((p) => p[0])
+      setOnlineUsers(users.length > 0 ? users : onlineUsersRef.current) // keep existing if no one visible
     })
 
     roomChannel.subscribe(async (status) => {
@@ -84,5 +124,5 @@ export function useRoom(nickname: string) {
     }
   }, [])
 
-  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom }
+  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence }
 }
