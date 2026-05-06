@@ -63,7 +63,6 @@ export function useMessages(
   const activeNotifRef = useRef<Notification | null>(null)
   const bumpUnreadRef = useRef<() => void>(() => {})
   const loadHistoryRef = useRef<() => Promise<void>>(async () => {})
-  useEffect(() => { loadHistoryRef.current = loadHistory }, [loadHistory])
 
   // Desktop notification on new message (only when page hidden + enabled)
   const bumpUnread = useCallback((senderNick?: string) => {
@@ -176,6 +175,9 @@ export function useMessages(
       console.error('[messages] loadHistory failed:', err)
     }
   }, [roomId, encryptionKey])
+
+  // Keep loadHistoryRef in sync after loadHistory is defined
+  useEffect(() => { loadHistoryRef.current = loadHistory }, [loadHistory])
 
   // Subscribe to broadcast (independent of encryption key)
   useEffect(() => {
