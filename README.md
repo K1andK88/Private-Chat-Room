@@ -10,7 +10,7 @@
 - **消息自动消失** — 可自定义过期时间（默认 10 分钟，通过环境变量配置）
 - **密码验证** — 加入房间时验证密码正确性，空房间也可验证（基于加密验证字段）
 - **房间号唯一** — 创建时检测房间号是否已存在，已存在则提示
-- **消息撤回** — 支持发送后 5 分钟内撤回
+- **消息撤回** — 支持发送后撤回（窗口可配，默认 2 分钟）
 - **引用回复 & @提及** — 完整的聊天交互体验
 - **桌面通知** — 可选浏览器通知弹窗 + 可自定义提示音（内置/系统/自定义上传），仅页面不可见时触发
 - **图片上传重试** — Storage 上传失败时自动缓存至 IndexedDB，支持手动重传
@@ -80,6 +80,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 # Optional: message expiration time in minutes (default: 10)
 # VITE_MESSAGE_TTL=10
 
+# Optional: message revoke window in minutes (default: 2)
+# VITE_REVOKE_WINDOW=2
+
 # Optional: custom verify secret for room password (default: PCR_VERIFY_2026)
 # VITE_VERIFY_SECRET=your-custom-secret
 ```
@@ -106,6 +109,7 @@ vercel
 可选环境变量：
 - `VITE_ACCESS_PASSWORD` — 访问密码（保护网站入口）
 - `VITE_MESSAGE_TTL` — 消息过期时间（分钟，默认 10）
+- `VITE_REVOKE_WINDOW` — 消息撤回窗口（分钟，默认 2）
 - `VITE_VERIFY_SECRET` — 房间密码验证令牌（默认 `PCR_VERIFY_2026`，自定义后旧房间需重建）
 
 添加后重新部署（Deployments → 最新部署 → ⋯ → Redeploy）。
@@ -126,14 +130,14 @@ vercel
    - Framework preset: `Vite`
    - 构建命令：`npm run build`
    - 输出目录：`dist`
-4. 添加环境变量：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`、`VITE_VERIFY_SECRET`）
+4. 添加环境变量：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`、`VITE_REVOKE_WINDOW`、`VITE_VERIFY_SECRET`）
 
 **方式二：Wrangler CLI**
 ```bash
 npm run build
 npx wrangler pages deploy dist --project-name=private-chat-room
 ```
-添加环境变量后在 Cloudflare Dashboard → Pages → 项目 → Settings → Environment variables 中配置（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`、`VITE_VERIFY_SECRET`）。
+添加环境变量后在 Cloudflare Dashboard → Pages → 项目 → Settings → Environment variables 中配置（可选：`VITE_ACCESS_PASSWORD`、`VITE_MESSAGE_TTL`、`VITE_REVOKE_WINDOW`、`VITE_VERIFY_SECRET`）。
 
 ## 📂 项目结构
 
