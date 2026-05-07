@@ -48,7 +48,7 @@ function ChatApp() {
   const [roomPassword, setRoomPassword] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
-  const [reconnectVersion, setReconnectVersion] = useState(0)
+  const [reconnectVersion] = useState(0)
 
   const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence } = useRoom(nickname ?? '')
 
