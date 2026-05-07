@@ -170,7 +170,12 @@ export function useMessages(
         status: 'sent' as MessageStatus,
       })).filter((m) => now - m.created_at < MESSAGE_TTL_MS)
 
-      setMessages(historyMsgs)
+      // Merge with any broadcasts that arrived since load started
+      setMessages((prev) => {
+        const existingIds = new Set(historyMsgs.map(m => m.id))
+        const recent = prev.filter(m => !existingIds.has(m.id))
+        return [...historyMsgs, ...recent]
+      })
     } catch (err) {
       console.error('[messages] loadHistory failed:', err)
     }

@@ -13,6 +13,7 @@ interface MessageListProps {
   onReply: (msg: ChatMessage) => void
   onRevoke: (msgId: string) => void
   onRetry: (msgId: string) => void
+  reconnectVersion?: number
 }
 
 function StatusIcon({ status }: { status?: MessageStatus }) {
@@ -386,12 +387,20 @@ function DesktopLightbox({ url, onClose, fileName }: { url: string; onClose: () 
 
 export default function MessageList({
   messages, myNickname, getDecrypted, getFileMeta, loadOriginalImage,
-  onReply, onRevoke, onRetry,
+  onReply, onRevoke, onRetry, reconnectVersion,
 }: MessageListProps) {
   const [decryptedVersion, setDecryptedVersion] = useState(0)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
   const decryptedRef = useRef<Map<string, string>>(new Map())
   const thumbnailsRef = useRef<Map<string, FileMeta>>(new Map())
+
+  // Clear decryption caches after channel rebuild to force re-decryption
+  // (new message objects from loadHistory need _nick re-set)
+  useEffect(() => {
+    decryptedRef.current.clear()
+    thumbnailsRef.current.clear()
+  }, [reconnectVersion])
+
   // Stable references for render — version bumps trigger re-render when cache updates
   void decryptedVersion
   void thumbnailVersion
@@ -413,7 +422,7 @@ export default function MessageList({
   useEffect(() => {
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'text') return
-      if (decryptedRef.current.has(msg.id) && msg.status !== 'sending') return
+      if (decryptedRef.current.has(msg.id) && msg.status !== 'sending' && msg._nick) return
       try {
         const text = await getDecrypted(msg)
         if (!decryptedRef.current.has(msg.id) || decryptedRef.current.get(msg.id) !== text) {
@@ -428,7 +437,7 @@ export default function MessageList({
   useEffect(() => {
     messages.forEach(async (msg) => {
       if (msg.msg_type !== 'image') return
-      if (thumbnailsRef.current.has(msg.id)) return
+      if (thumbnailsRef.current.has(msg.id) && msg._nick) return
       try {
         if (!msg._nick && msg.payload.ciphertext) {
           await getDecrypted(msg)

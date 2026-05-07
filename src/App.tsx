@@ -93,7 +93,6 @@ function ChatApp() {
       const elapsed = Date.now() - lastSyncTimeRef.current
       if (elapsed > SYNC_STALE_MS) {
         reconnectPresence()
-        setReconnectVersion((v) => v + 1)
       }
     }
 
@@ -280,6 +279,7 @@ function ChatApp() {
                   onReply={(msg) => setReplyTo(msg)}
                   onRevoke={revokeMessage}
                   onRetry={retryMessage}
+                  reconnectVersion={reconnectVersion}
                 />
 
                 <MessageInput
