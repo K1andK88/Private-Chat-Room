@@ -319,15 +319,15 @@ export function useMessages(
     }
   }, [])
 
-  // Mark sending messages as sent after timeout
+  // Mark stuck sending messages as failed after timeout so retry button appears
   useEffect(() => {
     const timer = setInterval(() => {
       setMessages((prev) => {
         let changed = false
         const updated = prev.map((m) => {
-          if (m.status === 'sending' && Date.now() - m.created_at > 3000) {
+          if (m.status === 'sending' && Date.now() - m.created_at > 5000) {
             changed = true
-            return { ...m, status: 'sent' as MessageStatus, _plaintext: undefined }
+            return { ...m, status: 'failed' as MessageStatus }
           }
           return m
         })
@@ -342,9 +342,9 @@ export function useMessages(
     return encryptMessage(JSON.stringify({ n: nick, t: text }), encryptionKey!)
   }, [encryptionKey])
 
-  // Save message to DB
+  // Save message to DB (upsert so retry doesn't fail on UNIQUE constraint)
   const saveToDB = useCallback(async (msg: ChatMessage) => {
-    const { error: dbError } = await supabase.from('messages').insert({
+    const { error: dbError } = await supabase.from('messages').upsert({
       id: msg.id,
       room_id: msg.room_id,
       sender_nickname: msg.sender_nickname,
@@ -354,7 +354,7 @@ export function useMessages(
       reply_to_id: msg.reply_to_id || null,
       action: msg.action,
       created_at: msg.created_at,
-    })
+    }, { onConflict: 'id' })
     if (dbError) {
       throw dbError
     }
@@ -386,11 +386,6 @@ export function useMessages(
         const payload = await encryptPayload(plaintext, nickname)
         pendingRef.current.set(msgId, plaintext)
 
-        setMessages((prev) =>
-          prev.map((m) => (m.id === msgId ? { ...m, payload, status: 'sent' as MessageStatus, _plaintext: undefined } : m))
-        )
-        pendingRef.current.delete(msgId)
-
         // Save to DB first, then broadcast
         await saveToDB({ ...optimisticMsg, payload, status: 'sent' })
 
@@ -408,6 +403,12 @@ export function useMessages(
             timestamp: Date.now(),
           } satisfies BroadcastMessage,
         })
+
+        // Only clear plaintext AFTER both DB and broadcast succeed
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msgId ? { ...m, payload, status: 'sent' as MessageStatus, _plaintext: undefined } : m))
+        )
+        pendingRef.current.delete(msgId)
       } catch (err: unknown) {
         // Check if room was deleted (foreign key violation)
         if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23503') {
@@ -569,7 +570,10 @@ export function useMessages(
       if (msg.msg_type === 'text') {
         const plaintext = msg._plaintext || pendingRef.current.get(messageId)
         const nick = msg._nick || nickname
-        if (!plaintext) return
+        if (!plaintext) {
+          setError('消息数据已丢失，请重新发送')
+          return
+        }
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -603,6 +607,14 @@ export function useMessages(
               timestamp: Date.now(),
             } satisfies BroadcastMessage,
           })
+
+          // Mark as sent and clean up plaintext
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId ? { ...m, payload, status: 'sent' as MessageStatus, _plaintext: undefined } : m
+            )
+          )
+          pendingRef.current.delete(messageId)
         } catch {
           setMessages((prev) =>
             prev.map((m) =>
@@ -669,7 +681,7 @@ export function useMessages(
         }
       }
     },
-    [encryptionKey, roomId, nickname, encryptPayload]
+    [encryptionKey, roomId, nickname, encryptPayload, saveToDB]
   )
 
   // Revoke message
