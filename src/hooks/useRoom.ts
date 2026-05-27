@@ -55,7 +55,16 @@ export function useRoom(nickname: string) {
     roomChannel.on('presence', { event: 'sync' }, () => {
       lastSyncTimeRef.current = Date.now()
       const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
-      setOnlineUsers(Object.values(state).map((p) => p[0]))
+      const seen = new Map<string, { id: string; nickname: string; joined_at: number }>()
+      for (const entries of Object.values(state)) {
+        for (const entry of entries) {
+          const existing = seen.get(entry.nickname)
+          if (!existing || entry.joined_at > existing.joined_at) {
+            seen.set(entry.nickname, entry)
+          }
+        }
+      }
+      setOnlineUsers(Array.from(seen.values()))
     })
 
     roomChannel.subscribe(async (status) => {
@@ -88,8 +97,18 @@ export function useRoom(nickname: string) {
     roomChannel.on('presence', { event: 'sync' }, () => {
       lastSyncTimeRef.current = Date.now()
       const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
-      const users = Object.values(state).map((p) => p[0])
-      setOnlineUsers(users.length > 0 ? users : onlineUsersRef.current) // keep existing if no one visible
+      // Deduplicate by nickname: keep the latest entry per user
+      const seen = new Map<string, { id: string; nickname: string; joined_at: number }>()
+      for (const entries of Object.values(state)) {
+        for (const entry of entries) {
+          const existing = seen.get(entry.nickname)
+          if (!existing || entry.joined_at > existing.joined_at) {
+            seen.set(entry.nickname, entry)
+          }
+        }
+      }
+      const users = Array.from(seen.values())
+      setOnlineUsers(users.length > 0 ? users : onlineUsersRef.current)
     })
 
     roomChannel.subscribe(async (status) => {
