@@ -8,7 +8,7 @@ export function useRoom(nickname: string) {
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([])
   const [loading, setLoading] = useState(false)
   const channelRef = useRef<RealtimeChannel | null>(null)
-  const userIdRef = useRef(`user:${nickname}:${crypto.randomUUID()}`)
+  const userIdRef = useRef(crypto.randomUUID())
   const lastSyncTimeRef = useRef(Date.now())
   const currentRoomRef = useRef<Room | null>(null)
   useEffect(() => { currentRoomRef.current = currentRoom }, [currentRoom])

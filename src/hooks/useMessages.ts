@@ -63,6 +63,7 @@ export function useMessages(
   const activeNotifRef = useRef<Notification | null>(null)
   const bumpUnreadRef = useRef<() => void>(() => {})
   const loadHistoryRef = useRef<() => Promise<void>>(async () => {})
+  const historyLoadingRef = useRef(false)
 
   // Desktop notification on new message (only when page hidden + enabled)
   const bumpUnread = useCallback((senderNick?: string) => {
@@ -139,6 +140,8 @@ export function useMessages(
   // Load message history from DB
   const loadHistory = useCallback(async () => {
     if (!roomId || !encryptionKey) return
+    if (historyLoadingRef.current) return
+    historyLoadingRef.current = true
 
     try {
       const { data, error: dbError } = await supabase
@@ -178,6 +181,8 @@ export function useMessages(
       })
     } catch (err) {
       console.error('[messages] loadHistory failed:', err)
+    } finally {
+      historyLoadingRef.current = false
     }
   }, [roomId, encryptionKey])
 
@@ -200,10 +205,11 @@ export function useMessages(
       const msg = payload as BroadcastMessage
 
       if (msg.type === 'revoke' && msg.message_id) {
+        const revokerNick = msg.sender_nickname || undefined
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msg.message_id
-              ? { ...m, action: 'revoke' as MessageAction, revoked_by: m._nick || m.sender_nickname }
+              ? { ...m, action: 'revoke' as MessageAction, revoked_by: revokerNick || m._nick || m.sender_nickname || undefined }
               : m
           )
         )
@@ -697,7 +703,7 @@ export function useMessages(
         event: 'message',
         payload: {
           type: 'revoke',
-          sender_nickname: '',
+          sender_nickname: nickname,
           room_id: roomId,
           message_id: messageId,
           timestamp: Date.now(),

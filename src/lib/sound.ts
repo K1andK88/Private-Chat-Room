@@ -17,6 +17,7 @@ export const BUILT_IN_SOUNDS: SoundOption[] = [
 ]
 
 let currentAudio: HTMLAudioElement | null = null
+let currentObjectUrl: string | null = null
 
 /** Stop any currently playing preview/preview sound. */
 export function stopCurrentSound(): void {
@@ -24,6 +25,10 @@ export function stopCurrentSound(): void {
     currentAudio.pause()
     currentAudio.src = ''
     currentAudio = null
+  }
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl)
+    currentObjectUrl = null
   }
 }
 
@@ -86,15 +91,16 @@ export async function previewSound(soundId: string, volume: number, onEnded?: Pr
 
     audio.volume = Math.max(0, Math.min(1, volume))
     currentAudio = audio
+    if (objectUrl) currentObjectUrl = objectUrl
     try {
       await audio.play()
     } catch {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
       currentAudio = null
+      currentObjectUrl = null
       return false
     }
-    // Revoke object URL and notify caller after playback ends
-    if (objectUrl) audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl!))
+    // Notify caller after playback ends
     audio.addEventListener('ended', () => onEnded?.())
     return true
   } catch {
@@ -139,7 +145,7 @@ export async function playNotificationSound(
       if (objectUrl) URL.revokeObjectURL(objectUrl)
       return
     }
-    if (objectUrl) audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl!))
+    if (objectUrl) currentObjectUrl = objectUrl
   } catch {
     // Silently fail
   }
