@@ -93,7 +93,7 @@ export default function MessageInput({
 
     if (showMentions) {
       const pos = el?.selectionStart ?? text.length
-      const textAfterAt = text.slice(mentionStartPos + 1, pos)
+      const textAfterAt = (el?.value ?? text).slice(mentionStartPos + 1, pos)
       if (textAfterAt.includes(' ') || textAfterAt.length > 20) {
         setShowMentions(false)
       } else {

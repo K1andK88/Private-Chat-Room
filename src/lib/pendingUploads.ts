@@ -56,13 +56,3 @@ export async function removePendingUpload(msgId: string): Promise<void> {
     tx.onerror = () => { db.close(); reject(tx.error) }
   })
 }
-
-export async function clearPendingUploads(): Promise<void> {
-  const db = await openDB()
-  const tx = db.transaction(STORE_NAME, 'readwrite')
-  tx.objectStore(STORE_NAME).clear()
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => { db.close(); resolve() }
-    tx.onerror = () => { db.close(); reject(tx.error) }
-  })
-}

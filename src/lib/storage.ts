@@ -32,11 +32,6 @@ export async function downloadEncryptedFile(fileKey: string): Promise<Uint8Array
   return new Uint8Array(await data.arrayBuffer())
 }
 
-/** Delete file from Supabase Storage */
-export async function deleteStorageFile(fileKey: string): Promise<void> {
-  await supabase.storage.from(BUCKET).remove([fileKey])
-}
-
 /** Build storage file key */
 export function buildFileKey(roomId: string, messageId: string): string {
   return `${roomId}/${messageId}.bin`

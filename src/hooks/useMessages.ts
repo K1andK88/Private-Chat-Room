@@ -34,7 +34,6 @@ export function useMessages(
   nickname: string,
   onRoomDeleted?: () => void,
   notifConfig?: NotificationConfig,
-  reconnectVersion?: number
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null)
@@ -64,6 +63,9 @@ export function useMessages(
   const bumpUnreadRef = useRef<() => void>(() => {})
   const loadHistoryRef = useRef<() => Promise<void>>(async () => {})
   const historyLoadingRef = useRef(false)
+  const roomIdRef = useRef<string | null>(null)
+  const subscribedRef = useRef(false)
+  const subscribedPromiseRef = useRef<Promise<void>>(Promise.resolve())
 
   // Desktop notification on new message (only when page hidden + enabled)
   const bumpUnread = useCallback((senderNick?: string) => {
@@ -118,6 +120,8 @@ export function useMessages(
 
   // Clear messages when room changes
   useEffect(() => {
+    roomIdRef.current = roomId
+    historyLoadingRef.current = false
     setMessages([])
     setError(null)
     setReplyTo(null)
@@ -137,18 +141,21 @@ export function useMessages(
       .catch(() => setError('密钥派生失败'))
   }, [roomId, roomPassword])
 
-  // Load message history from DB
+  // Load message history from DB (newest-first, then reversed for display)
   const loadHistory = useCallback(async () => {
     if (!roomId || !encryptionKey) return
     if (historyLoadingRef.current) return
     historyLoadingRef.current = true
+    const requestedRoom = roomId
 
     try {
+      const now = Date.now()
       const { data, error: dbError } = await supabase
         .from('messages')
         .select('*')
-        .eq('room_id', roomId)
-        .order('created_at', { ascending: true })
+        .eq('room_id', requestedRoom)
+        .gte('created_at', now - MESSAGE_TTL_MS)
+        .order('created_at', { ascending: false })
         .limit(HISTORY_LIMIT)
 
       if (dbError) {
@@ -156,22 +163,27 @@ export function useMessages(
         return
       }
 
+      // Room switched while loading — drop stale history to avoid cross-room pollution
+      if (roomIdRef.current !== requestedRoom) return
+
       if (!data || data.length === 0) return
 
-      const now = Date.now()
-      const historyMsgs: ChatMessage[] = data.map((row: Record<string, unknown>) => ({
-        id: row.id as string,
-        room_id: row.room_id as string,
-        sender_nickname: row.sender_nickname as string,
-        msg_type: (row.msg_type as MessageType) || 'text',
-        payload: row.payload as EncryptedPayload,
-        file_meta_encrypted: row.file_meta_encrypted as EncryptedPayload | undefined,
-        created_at: row.created_at as number,
-        action: (row.action as MessageAction) || 'none',
-        revoked_by: row.revoked_by as string | undefined,
-        reply_to_id: row.reply_to_id as string | undefined,
-        status: 'sent' as MessageStatus,
-      })).filter((m) => now - m.created_at < MESSAGE_TTL_MS)
+      const historyMsgs: ChatMessage[] = data
+        .map((row: Record<string, unknown>) => ({
+          id: row.id as string,
+          room_id: row.room_id as string,
+          sender_nickname: row.sender_nickname as string,
+          msg_type: (row.msg_type as MessageType) || 'text',
+          payload: row.payload as EncryptedPayload,
+          file_meta_encrypted: row.file_meta_encrypted as EncryptedPayload | undefined,
+          created_at: row.created_at as number,
+          action: (row.action as MessageAction) || 'none',
+          revoked_by: row.revoked_by as string | undefined,
+          reply_to_id: row.reply_to_id as string | undefined,
+          status: 'sent' as MessageStatus,
+        }))
+        .filter((m) => now - m.created_at < MESSAGE_TTL_MS)
+        .reverse() // DB returned newest-first; display oldest-first
 
       // Merge with any broadcasts that arrived since load started
       setMessages((prev) => {
@@ -196,6 +208,10 @@ export function useMessages(
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current)
     }
+
+    subscribedRef.current = false
+    let resolveSubscribed: () => void = () => {}
+    subscribedPromiseRef.current = new Promise<void>((resolve) => { resolveSubscribed = resolve })
 
     const ch = supabase.channel(`messages:${roomId}`, {
       config: { broadcast: { self: true } },
@@ -245,6 +261,8 @@ export function useMessages(
 
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        subscribedRef.current = true
+        resolveSubscribed()
         loadHistoryRef.current()
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.error('[messages] channel subscribe failed:', status)
@@ -253,12 +271,28 @@ export function useMessages(
     channelRef.current = ch
 
     return () => {
+      subscribedRef.current = false
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
       }
     }
-  }, [roomId, reconnectVersion])
+  }, [roomId])
+
+  // Send a broadcast, waiting (up to 3s) for the channel to be subscribed
+  const sendBroadcast = useCallback(async (payload: BroadcastMessage) => {
+    if (!subscribedRef.current) {
+      await Promise.race([
+        subscribedPromiseRef.current,
+        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+      ])
+    }
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'message',
+      payload,
+    })
+  }, [])
 
   // Load history when encryption key becomes available
   useEffect(() => {
@@ -395,20 +429,16 @@ export function useMessages(
         // Save to DB first, then broadcast
         await saveToDB({ ...optimisticMsg, payload, status: 'sent' })
 
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'message',
-          payload: {
-            type: 'message',
-            sender_nickname: '',
-            room_id: roomId,
-            msg_type: 'text',
-            payload,
-            message_id: msgId,
-            reply_to_id: replyToMsg?.id,
-            timestamp: Date.now(),
-          } satisfies BroadcastMessage,
-        })
+        await sendBroadcast({
+          type: 'message',
+          sender_nickname: '',
+          room_id: roomId,
+          msg_type: 'text',
+          payload,
+          message_id: msgId,
+          reply_to_id: replyToMsg?.id,
+          timestamp: Date.now(),
+        } satisfies BroadcastMessage)
 
         // Only clear plaintext AFTER both DB and broadcast succeed
         setMessages((prev) =>
@@ -430,7 +460,7 @@ export function useMessages(
         setError('消息发送失败')
       }
     },
-    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted]
+    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted, sendBroadcast]
   )
 
   // Send image
@@ -519,20 +549,17 @@ export function useMessages(
           throw new Error('UPLOAD_FAILED')
         }
 
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'message',
-          payload: {
-            type: 'message',
-            sender_nickname: '',
-            room_id: roomId,
-            msg_type: 'image',
-            payload,
-            file_meta_encrypted: fileMetaEncrypted,
-            message_id: msgId,
-            timestamp: Date.now(),
-          } satisfies BroadcastMessage,
-        })
+        // Best-effort broadcast: DB row is saved, others see it on next history load
+        void sendBroadcast({
+          type: 'message',
+          sender_nickname: '',
+          room_id: roomId,
+          msg_type: 'image',
+          payload,
+          file_meta_encrypted: fileMetaEncrypted,
+          message_id: msgId,
+          timestamp: Date.now(),
+        } satisfies BroadcastMessage).catch(() => {})
 
         setMessages((prev) =>
           prev.map((m) => (m.id === msgId ? { ...m, status: 'sent' as MessageStatus } : m))
@@ -561,7 +588,7 @@ export function useMessages(
         setSendingImage(false)
       }
     },
-    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted]
+    [roomId, nickname, encryptionKey, saveToDB, encryptPayload, onRoomDeleted, sendBroadcast]
   )
 
   const messagesRef = useRef<ChatMessage[]>([])
@@ -599,20 +626,16 @@ export function useMessages(
             _plaintext: undefined,
           })
 
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'message',
-            payload: {
-              type: 'message',
-              sender_nickname: '',
-              room_id: roomId,
-              msg_type: 'text',
-              payload,
-              message_id: messageId,
-              reply_to_id: msg.reply_to_id,
-              timestamp: Date.now(),
-            } satisfies BroadcastMessage,
-          })
+          await sendBroadcast({
+            type: 'message',
+            sender_nickname: '',
+            room_id: roomId,
+            msg_type: 'text',
+            payload,
+            message_id: messageId,
+            reply_to_id: msg.reply_to_id,
+            timestamp: Date.now(),
+          } satisfies BroadcastMessage)
 
           // Mark as sent and clean up plaintext
           setMessages((prev) =>
@@ -662,21 +685,17 @@ export function useMessages(
             )
           )
 
-          // Broadcast so other tabs see it
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'message',
-            payload: {
-              type: 'message',
-              sender_nickname: '',
-              room_id: roomId,
-              msg_type: 'image',
-              payload: msg.payload,
-              file_meta_encrypted: msg.file_meta_encrypted,
-              message_id: messageId,
-              timestamp: msg.created_at,
-            } satisfies BroadcastMessage,
-          })
+          // Broadcast so other tabs see it (best-effort)
+          void sendBroadcast({
+            type: 'message',
+            sender_nickname: '',
+            room_id: roomId,
+            msg_type: 'image',
+            payload: msg.payload,
+            file_meta_encrypted: msg.file_meta_encrypted,
+            message_id: messageId,
+            timestamp: msg.created_at,
+          } satisfies BroadcastMessage).catch(() => {})
         } catch {
           setMessages((prev) =>
             prev.map((m) =>
@@ -687,7 +706,7 @@ export function useMessages(
         }
       }
     },
-    [encryptionKey, roomId, nickname, encryptPayload, saveToDB]
+    [encryptionKey, roomId, nickname, encryptPayload, saveToDB, sendBroadcast]
   )
 
   // Revoke message
@@ -698,17 +717,13 @@ export function useMessages(
       // Clear any stale error (e.g. "消息发送失败") when user revokes
       setError(null)
 
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'message',
-        payload: {
-          type: 'revoke',
-          sender_nickname: nickname,
-          room_id: roomId,
-          message_id: messageId,
-          timestamp: Date.now(),
-        } satisfies BroadcastMessage,
-      })
+      void sendBroadcast({
+        type: 'revoke',
+        sender_nickname: nickname,
+        room_id: roomId,
+        message_id: messageId,
+        timestamp: Date.now(),
+      } satisfies BroadcastMessage).catch(() => {})
 
       supabase
         .from('messages')
@@ -716,7 +731,7 @@ export function useMessages(
         .eq('id', messageId)
         .then()
     },
-    [roomId, nickname]
+    [roomId, nickname, sendBroadcast]
   )
 
   // Decrypt text and extract nickname from payload

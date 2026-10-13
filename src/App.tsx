@@ -48,7 +48,6 @@ function ChatApp() {
   const [roomPassword, setRoomPassword] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
-  const [reconnectVersion] = useState(0)
 
   const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence } = useRoom(nickname ?? '')
 
@@ -74,7 +73,7 @@ function ChatApp() {
     leaveRoom()
     setRoomPassword('')
     setJoinError('房间已被删除')
-  }, notifConfig, reconnectVersion)
+  }, notifConfig)
 
   // ── ALL hooks must be declared BEFORE any conditional return ──
 
@@ -129,7 +128,12 @@ function ChatApp() {
         // Derive key with actual room ID, store password verification
         const key = await deriveKey(password, room.id)
         const verifyPayload = await encryptMessage(import.meta.env.VITE_VERIFY_SECRET || 'PCR_VERIFY_2026', key)
-        await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
+        const { error: verifyError } = await supabase.from('rooms').update({ password_verify: verifyPayload }).eq('id', room.id)
+        if (verifyError) {
+          // Roll back the half-created room so it doesn't linger unjoinable
+          await supabase.from('rooms').delete().eq('id', room.id)
+          throw new Error('verify write failed')
+        }
 
         setRoomPassword(password)
         await joinRoom(room)
@@ -279,7 +283,7 @@ function ChatApp() {
                   onReply={(msg) => setReplyTo(msg)}
                   onRevoke={revokeMessage}
                   onRetry={retryMessage}
-                  reconnectVersion={reconnectVersion}
+                  roomId={currentRoom.id}
                 />
 
                 <MessageInput

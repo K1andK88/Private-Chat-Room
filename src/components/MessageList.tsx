@@ -13,7 +13,7 @@ interface MessageListProps {
   onReply: (msg: ChatMessage) => void
   onRevoke: (msgId: string) => void
   onRetry: (msgId: string) => void
-  reconnectVersion?: number
+  roomId: string
 }
 
 function StatusIcon({ status }: { status?: MessageStatus }) {
@@ -387,19 +387,19 @@ function DesktopLightbox({ url, onClose, fileName }: { url: string; onClose: () 
 
 export default function MessageList({
   messages, myNickname, getDecrypted, getFileMeta, loadOriginalImage,
-  onReply, onRevoke, onRetry, reconnectVersion,
+  onReply, onRevoke, onRetry, roomId,
 }: MessageListProps) {
   const [decryptedVersion, setDecryptedVersion] = useState(0)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
   const decryptedRef = useRef<Map<string, string>>(new Map())
   const thumbnailsRef = useRef<Map<string, FileMeta>>(new Map())
 
-  // Clear decryption caches after channel rebuild to force re-decryption
-  // (new message objects from loadHistory need _nick re-set)
+  // Clear decryption caches when switching rooms — entries are keyed by message
+  // id and must not leak across rooms (new message objects need _nick re-set)
   useEffect(() => {
     decryptedRef.current.clear()
     thumbnailsRef.current.clear()
-  }, [reconnectVersion])
+  }, [roomId])
 
   // Stable references for render — version bumps trigger re-render when cache updates
   void decryptedVersion

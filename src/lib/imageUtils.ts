@@ -49,6 +49,9 @@ export function generateThumbnail(file: File): Promise<string> {
         return
       }
 
+      // White background so transparent PNGs don't render as black in JPEG
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       const dataUrl = canvas.toDataURL('image/jpeg', THUMBNAIL_QUALITY)
       URL.revokeObjectURL(img.src)
