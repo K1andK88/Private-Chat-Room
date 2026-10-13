@@ -10,6 +10,7 @@ export function useRoom(nickname: string) {
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userIdRef = useRef(crypto.randomUUID())
   const lastSyncTimeRef = useRef(Date.now())
+  const presenceStatusRef = useRef<string>('idle')
   const currentRoomRef = useRef<Room | null>(null)
   useEffect(() => { currentRoomRef.current = currentRoom }, [currentRoom])
   const onlineUsersRef = useRef<PresenceUser[]>([])
@@ -68,6 +69,7 @@ export function useRoom(nickname: string) {
     })
 
     roomChannel.subscribe(async (status) => {
+      presenceStatusRef.current = status
       if (status === 'SUBSCRIBED') {
         await roomChannel.track({
           id: userIdRef.current,
@@ -112,6 +114,7 @@ export function useRoom(nickname: string) {
     })
 
     roomChannel.subscribe(async (status) => {
+      presenceStatusRef.current = status
       if (status === 'SUBSCRIBED') {
         await roomChannel.track({
           id: userIdRef.current,
@@ -130,6 +133,7 @@ export function useRoom(nickname: string) {
       await supabase.removeChannel(channelRef.current)
       channelRef.current = null
     }
+    presenceStatusRef.current = 'idle'
     setCurrentRoom(null)
     setOnlineUsers([])
   }, [])
@@ -143,5 +147,5 @@ export function useRoom(nickname: string) {
     }
   }, [])
 
-  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence }
+  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, presenceStatusRef, reconnectPresence }
 }

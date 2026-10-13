@@ -49,7 +49,7 @@ function ChatApp() {
   const [joinError, setJoinError] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
 
-  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, reconnectPresence } = useRoom(nickname ?? '')
+  const { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, presenceStatusRef, reconnectPresence } = useRoom(nickname ?? '')
 
   const {
     messages,
@@ -82,15 +82,14 @@ function ChatApp() {
     if (currentRoom) setJoinError(null)
   }, [currentRoom])
 
-  // Scheme B: detect stale connection on tab focus / network restore
+  // Scheme B: rebuild the presence channel on tab focus / network restore
+  // only when it is actually dead (previously used a 30s sync-staleness
+  // heuristic that misfired in quiet rooms and caused needless churn)
   useEffect(() => {
-    const SYNC_STALE_MS = 30_000
-
     const checkAndReconnect = () => {
       if (document.visibilityState !== 'visible') return
       if (!currentRoom) return
-      const elapsed = Date.now() - lastSyncTimeRef.current
-      if (elapsed > SYNC_STALE_MS) {
+      if (presenceStatusRef.current !== 'SUBSCRIBED') {
         reconnectPresence()
       }
     }
@@ -102,6 +101,18 @@ function ChatApp() {
       document.removeEventListener('visibilitychange', checkAndReconnect)
       window.removeEventListener('online', checkAndReconnect)
     }
+  }, [currentRoom, reconnectPresence])
+
+  // Watchdog: periodically rebuild the presence channel if it died
+  // (e.g. silent socket loss) so the member list catches up on its own
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!currentRoom) return
+      if (presenceStatusRef.current !== 'SUBSCRIBED') {
+        reconnectPresence()
+      }
+    }, 15_000)
+    return () => clearInterval(timer)
   }, [currentRoom, reconnectPresence])
 
   // ── Event handlers (not hooks, but keep before returns for clarity) ──
