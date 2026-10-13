@@ -9,8 +9,8 @@ export function useRoom(nickname: string) {
   const [loading, setLoading] = useState(false)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userIdRef = useRef(crypto.randomUUID())
-  const lastSyncTimeRef = useRef(Date.now())
   const presenceStatusRef = useRef<string>('idle')
+  const reconnectInFlightRef = useRef(false)
   const currentRoomRef = useRef<Room | null>(null)
   useEffect(() => { currentRoomRef.current = currentRoom }, [currentRoom])
   const onlineUsersRef = useRef<PresenceUser[]>([])
@@ -54,7 +54,6 @@ export function useRoom(nickname: string) {
     })
 
     roomChannel.on('presence', { event: 'sync' }, () => {
-      lastSyncTimeRef.current = Date.now()
       const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
       const seen = new Map<string, { id: string; nickname: string; joined_at: number }>()
       for (const entries of Object.values(state)) {
@@ -84,47 +83,54 @@ export function useRoom(nickname: string) {
 
   // Rebuild presence channel (without leaving the room)
   const reconnectPresence = useCallback(async () => {
-    const room = currentRoomRef.current
-    if (!room) return
+    // Guard against concurrent rebuilds (watchdog + focus check can overlap)
+    if (reconnectInFlightRef.current) return
+    reconnectInFlightRef.current = true
 
-    if (channelRef.current) {
-      await supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
+    try {
+      const room = currentRoomRef.current
+      if (!room) return
 
-    const roomChannel = supabase.channel(`room:${room.id}`, {
-      config: { broadcast: { self: true } },
-    })
+      if (channelRef.current) {
+        await supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+      }
 
-    roomChannel.on('presence', { event: 'sync' }, () => {
-      lastSyncTimeRef.current = Date.now()
-      const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
-      // Deduplicate by nickname: keep the latest entry per user
-      const seen = new Map<string, { id: string; nickname: string; joined_at: number }>()
-      for (const entries of Object.values(state)) {
-        for (const entry of entries) {
-          const existing = seen.get(entry.nickname)
-          if (!existing || entry.joined_at > existing.joined_at) {
-            seen.set(entry.nickname, entry)
+      const roomChannel = supabase.channel(`room:${room.id}`, {
+        config: { broadcast: { self: true } },
+      })
+
+      roomChannel.on('presence', { event: 'sync' }, () => {
+        const state = roomChannel.presenceState<{ id: string; nickname: string; joined_at: number }>()
+        // Deduplicate by nickname: keep the latest entry per user
+        const seen = new Map<string, { id: string; nickname: string; joined_at: number }>()
+        for (const entries of Object.values(state)) {
+          for (const entry of entries) {
+            const existing = seen.get(entry.nickname)
+            if (!existing || entry.joined_at > existing.joined_at) {
+              seen.set(entry.nickname, entry)
+            }
           }
         }
-      }
-      const users = Array.from(seen.values())
-      setOnlineUsers(users.length > 0 ? users : onlineUsersRef.current)
-    })
+        const users = Array.from(seen.values())
+        setOnlineUsers(users.length > 0 ? users : onlineUsersRef.current)
+      })
 
-    roomChannel.subscribe(async (status) => {
-      presenceStatusRef.current = status
-      if (status === 'SUBSCRIBED') {
-        await roomChannel.track({
-          id: userIdRef.current,
-          nickname,
-          joined_at: Date.now(),
-        })
-      }
-    })
+      roomChannel.subscribe(async (status) => {
+        presenceStatusRef.current = status
+        if (status === 'SUBSCRIBED') {
+          await roomChannel.track({
+            id: userIdRef.current,
+            nickname,
+            joined_at: Date.now(),
+          })
+        }
+      })
 
-    channelRef.current = roomChannel
+      channelRef.current = roomChannel
+    } finally {
+      reconnectInFlightRef.current = false
+    }
   }, [nickname])
 
   // Leave room entirely
@@ -147,5 +153,5 @@ export function useRoom(nickname: string) {
     }
   }, [])
 
-  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, lastSyncTimeRef, presenceStatusRef, reconnectPresence }
+  return { currentRoom, onlineUsers, loading, createRoom, joinRoom, leaveRoom, presenceStatusRef, reconnectPresence }
 }

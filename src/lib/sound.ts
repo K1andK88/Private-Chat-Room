@@ -100,8 +100,14 @@ export async function previewSound(soundId: string, volume: number, onEnded?: Pr
       currentObjectUrl = null
       return false
     }
-    // Notify caller after playback ends
-    audio.addEventListener('ended', () => onEnded?.())
+    // Revoke object URL and notify caller after playback ends
+    audio.addEventListener('ended', () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+        if (currentObjectUrl === objectUrl) currentObjectUrl = null
+      }
+      onEnded?.()
+    })
     return true
   } catch {
     return false
@@ -145,7 +151,14 @@ export async function playNotificationSound(
       if (objectUrl) URL.revokeObjectURL(objectUrl)
       return
     }
-    if (objectUrl) currentObjectUrl = objectUrl
+    if (objectUrl) {
+      const url = objectUrl
+      currentObjectUrl = url
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(url)
+        if (currentObjectUrl === url) currentObjectUrl = null
+      })
+    }
   } catch {
     // Silently fail
   }

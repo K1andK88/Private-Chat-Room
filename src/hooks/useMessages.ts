@@ -359,13 +359,15 @@ export function useMessages(
     }
   }, [])
 
-  // Mark stuck sending messages as failed after timeout so retry button appears
+  // Mark stuck sending text messages as failed after timeout so the retry
+  // button appears. Images are excluded: uploads can legitimately exceed 5s,
+  // and flipping them to "failed" mid-upload breaks the retry flow.
   useEffect(() => {
     const timer = setInterval(() => {
       setMessages((prev) => {
         let changed = false
         const updated = prev.map((m) => {
-          if (m.status === 'sending' && Date.now() - m.created_at > 5000) {
+          if (m.status === 'sending' && m.msg_type === 'text' && Date.now() - m.created_at > 5000) {
             changed = true
             return { ...m, status: 'failed' as MessageStatus }
           }
@@ -711,11 +713,31 @@ export function useMessages(
 
   // Revoke message
   const revokeMessage = useCallback(
-    (messageId: string) => {
+    async (messageId: string) => {
       if (!roomId) return
 
       // Clear any stale error (e.g. "消息发送失败") when user revokes
       setError(null)
+
+      // Persist first — the DB is the source of truth on reload
+      try {
+        const { error: revokeErr } = await supabase
+          .from('messages')
+          .update({ action: 'revoke' })
+          .eq('id', messageId)
+        if (revokeErr) throw revokeErr
+      } catch (err) {
+        console.error('[messages] revoke DB update failed:', err)
+        setError('撤回失败，请重试')
+        return
+      }
+
+      // Update local state immediately (the broadcast echo is best-effort)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, action: 'revoke' as MessageAction } : m
+        )
+      )
 
       void sendBroadcast({
         type: 'revoke',
@@ -724,12 +746,6 @@ export function useMessages(
         message_id: messageId,
         timestamp: Date.now(),
       } satisfies BroadcastMessage).catch(() => {})
-
-      supabase
-        .from('messages')
-        .update({ action: 'revoke' })
-        .eq('id', messageId)
-        .then()
     },
     [roomId, nickname, sendBroadcast]
   )
